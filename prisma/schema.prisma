@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrderStatus {
+  PENDING
+  PROCESSED
+  DONE
+  CANCELLED
+}
+
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
@@ -22,8 +29,33 @@ model Food {
   imageUrl    String
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  customerName  String?
+  customerPhone String?
+  note          String?
+  status        OrderStatus @default(PENDING)
+  total         Int
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  foodId    String?
+  foodName  String
+  foodPrice Int
+  quantity  Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  food      Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
 }
 
 model Admin {
