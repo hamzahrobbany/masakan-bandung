@@ -2,7 +2,12 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-const ADMIN_COOKIE = 'masakan-bandung-admin';
+import {
+  ADMIN_CSRF_COOKIE,
+  ADMIN_SESSION_COOKIE,
+  ADMIN_TOKEN_HEADER
+} from '@/lib/security';
+
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 hari
 const JWT_HEADER = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
 
@@ -16,6 +21,45 @@ function getJwtSecret() {
 
 function base64UrlEncode(payload: object) {
   return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+function getAdminSecret() {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) {
+    throw new Error('ADMIN_SECRET belum diatur.');
+  }
+  return secret;
+}
+
+function hashCsrfToken(token: string) {
+  return createHmac('sha256', getAdminSecret()).update(token).digest('hex');
+}
+
+function persistCsrfCookie(response: NextResponse, hashedToken: string) {
+  response.cookies.set(ADMIN_CSRF_COOKIE, hashedToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: TOKEN_TTL_SECONDS
+  });
+}
+
+function shouldValidateCsrf(method: string) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+}
+
+function generateCsrfToken() {
+  return randomBytes(32).toString('hex');
+}
+
+export function generateAdminCsrfToken() {
+  return generateCsrfToken();
+}
+
+export function persistAdminCsrfToken(response: NextResponse, token: string) {
+  const hashed = hashCsrfToken(token);
+  persistCsrfCookie(response, hashed);
 }
 
 export async function hashPassword(password: string) {
@@ -68,7 +112,7 @@ export function verifySessionToken(token: string): (AdminSessionPayload & { exp:
 }
 
 export function persistAdminSession(response: NextResponse, token: string) {
-  response.cookies.set(ADMIN_COOKIE, token, {
+  response.cookies.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -78,21 +122,21 @@ export function persistAdminSession(response: NextResponse, token: string) {
 }
 
 export function destroyAdminSession(response: NextResponse) {
-  response.cookies.set(ADMIN_COOKIE, '', {
+  response.cookies.set(ADMIN_SESSION_COOKIE, '', {
     path: '/',
     maxAge: 0
   });
 }
 
 export async function getAdminSessionFromCookies() {
-  const store = await cookies();
-  const token = store.get(ADMIN_COOKIE)?.value;
+  const store = cookies();
+  const token = store.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
   return verifySessionToken(token);
 }
 
 export function getAdminSessionFromRequest(request: NextRequest) {
-  const token = request.cookies.get(ADMIN_COOKIE)?.value;
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
   return verifySessionToken(token);
 }
@@ -106,6 +150,19 @@ export function protectAdminRoute(request: NextRequest) {
   const session = getAdminSessionFromRequest(request);
   if (!session) {
     return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  if (shouldValidateCsrf(request.method)) {
+    const csrfHeader = request.headers.get(ADMIN_TOKEN_HEADER);
+    const storedHash = request.cookies.get(ADMIN_CSRF_COOKIE)?.value;
+    if (!csrfHeader || !storedHash) {
+      return { response: NextResponse.json({ error: 'CSRF token missing' }, { status: 403 }) };
+    }
+    const hashedHeader = hashCsrfToken(csrfHeader);
+    const headerBuffer = Buffer.from(hashedHeader);
+    const cookieBuffer = Buffer.from(storedHash);
+    if (headerBuffer.length !== cookieBuffer.length || !timingSafeEqual(headerBuffer, cookieBuffer)) {
+      return { response: NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 }) };
+    }
   }
   return { session } as const;
 }

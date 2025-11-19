@@ -1,7 +1,10 @@
 import Link from 'next/link';
+
 import AdminProtected from '@/components/AdminProtected';
 import prisma from '@/lib/prisma';
 import { formatCurrency } from '@/lib/utils';
+
+export const revalidate = 0;
 
 export default async function AdminFoodsPage() {
   const foods = await prisma.food.findMany({

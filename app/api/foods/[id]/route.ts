@@ -1,64 +1,78 @@
-import { NextResponse, NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
-import { protectAdminRoute } from "@/lib/auth";
+import { Prisma } from '@prisma/client';
+import { NextResponse, NextRequest } from 'next/server';
 
-// FIX: params bukan Promise
+import { protectAdminRoute } from '@/lib/auth';
+import { sanitizeFoodPayload } from '@/lib/food-validation';
+import prisma from '@/lib/prisma';
+
 type Params = { params: { id: string } };
 
 export async function GET(_request: NextRequest, context: Params) {
-  const { id } = context.params;
+  try {
+    const { id } = context.params;
+    const food = await prisma.food.findUnique({
+      where: { id },
+      include: { category: true }
+    });
 
-  const food = await prisma.food.findUnique({
-    where: { id },
-    include: { category: true }
-  });
+    if (!food) {
+      return NextResponse.json({ error: 'Food not found' }, { status: 404 });
+    }
 
-  if (!food) {
-    return NextResponse.json({ error: "Food not found" }, { status: 404 });
+    return NextResponse.json(food, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('Food detail GET error:', error);
+    return NextResponse.json({ error: 'Gagal memuat data makanan' }, { status: 500 });
   }
-
-  return NextResponse.json(food);
 }
 
 export async function PUT(request: NextRequest, context: Params) {
-  const { id } = context.params;
-
   const guard = protectAdminRoute(request);
-  if ("response" in guard) return guard.response;
+  if ('response' in guard) return guard.response;
 
-  const body = await request.json();
+  try {
+    const { id } = context.params;
+    const body = await request.json().catch(() => null);
+    const result = sanitizeFoodPayload(body);
+    if (result.error || !result.value) {
+      return NextResponse.json({ error: result.error ?? 'Payload tidak valid' }, { status: 400 });
+    }
 
-  if (!body.name || body.price === undefined || !body.imageUrl) {
-    return NextResponse.json(
-      { error: "Data makanan belum lengkap" },
-      { status: 400 }
-    );
+    const food = await prisma.food.update({
+      where: { id },
+      data: {
+        name: result.value.name,
+        price: result.value.price,
+        description: result.value.description,
+        imageUrl: result.value.imageUrl,
+        categoryId: result.value.categoryId
+      },
+      include: { category: true }
+    });
+
+    return NextResponse.json(food);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Food not found' }, { status: 404 });
+    }
+    console.error('Food PUT error:', error);
+    return NextResponse.json({ error: 'Gagal memperbarui makanan' }, { status: 500 });
   }
-
-  const food = await prisma.food.update({
-    where: { id },
-    data: {
-      name: body.name,
-      price: Number(body.price),
-      description: body.description,
-      imageUrl: body.imageUrl,
-      categoryId: body.categoryId || null
-    },
-    include: { category: true }
-  });
-
-  return NextResponse.json(food);
 }
 
 export async function DELETE(request: NextRequest, context: Params) {
-  const { id } = context.params;
-
   const guard = protectAdminRoute(request);
-  if ("response" in guard) return guard.response;
+  if ('response' in guard) return guard.response;
 
-  await prisma.food.delete({
-    where: { id }
-  });
-
-  return NextResponse.json({ success: true });
+  try {
+    const { id } = context.params;
+    await prisma.food.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Food not found' }, { status: 404 });
+    }
+    console.error('Food DELETE error:', error);
+    return NextResponse.json({ error: 'Gagal menghapus makanan' }, { status: 500 });
+  }
 }

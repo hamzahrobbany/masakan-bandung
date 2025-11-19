@@ -3,6 +3,8 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { clearAdminToken, saveAdminToken } from '@/lib/admin-token';
+
 type AdminProtectedProps = {
   children: ReactNode;
 };
@@ -20,11 +22,15 @@ export default function AdminProtected({ children }: AdminProtectedProps) {
       cache: 'no-store',
       signal: controller.signal
     })
-      .then((response) => {
+      .then(async (response) => {
         if (!response.ok) {
           throw new Error('Unauthorized');
         }
-        return response.json();
+        const data = await response.json();
+        if (data?.csrfToken) {
+          saveAdminToken(data.csrfToken);
+        }
+        return data;
       })
       .then(() => {
         if (isMounted) {
@@ -33,6 +39,7 @@ export default function AdminProtected({ children }: AdminProtectedProps) {
       })
       .catch(() => {
         if (isMounted) {
+          clearAdminToken();
           router.replace('/admin/login');
         }
       });

@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { readAdminToken } from '@/lib/admin-token';
+import { ADMIN_TOKEN_HEADER } from '@/lib/security';
 import { formatCurrency } from '@/lib/utils';
 
 type CategoryOption = {
@@ -41,10 +43,17 @@ export default function FoodForm({ categories, initialData, foodId, onUploadSucc
     setUploading(true);
     setError(null);
     try {
+      const adminToken = readAdminToken();
+      if (!adminToken) {
+        throw new Error('Token admin tidak ditemukan. Muat ulang halaman admin.');
+      }
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch('/api/upload', {
         method: 'POST',
+        headers: {
+          [ADMIN_TOKEN_HEADER]: adminToken
+        },
         body: formData
       });
       if (!response.ok) {
@@ -87,9 +96,16 @@ export default function FoodForm({ categories, initialData, foodId, onUploadSucc
     const method = foodId ? 'PUT' : 'POST';
 
     try {
+      const adminToken = readAdminToken();
+      if (!adminToken) {
+        throw new Error('Token admin tidak ditemukan. Muat ulang halaman admin.');
+      }
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          [ADMIN_TOKEN_HEADER]: adminToken
+        },
         body: JSON.stringify(payload)
       });
       if (!response.ok) {

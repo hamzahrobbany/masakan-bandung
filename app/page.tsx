@@ -1,6 +1,8 @@
 import FoodCard from '@/components/FoodCard';
 import prisma from '@/lib/prisma';
 
+export const revalidate = 0;
+
 export default async function HomePage() {
   const [categories, foods] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: 'asc' } }),

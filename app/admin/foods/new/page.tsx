@@ -2,6 +2,8 @@ import AdminProtected from '@/components/AdminProtected';
 import FoodForm from '@/components/FoodForm';
 import prisma from '@/lib/prisma';
 
+export const revalidate = 0;
+
 export default async function NewFoodPage() {
   const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   return (

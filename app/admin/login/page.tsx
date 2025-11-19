@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { saveAdminToken } from '@/lib/admin-token';
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('admin@masakan.id');
@@ -23,6 +25,10 @@ export default function AdminLoginPage() {
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body?.error ?? 'Gagal masuk');
+      }
+      const data = await response.json();
+      if (data?.csrfToken) {
+        saveAdminToken(data.csrfToken);
       }
       router.push('/admin/foods');
       router.refresh();

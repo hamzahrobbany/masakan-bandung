@@ -1,21 +1,30 @@
-"use server";
-
 import { notFound } from 'next/navigation';
+
 import AdminProtected from '@/components/AdminProtected';
 import FoodForm from '@/components/FoodForm';
 import prisma from '@/lib/prisma';
+
+export const revalidate = 0;
 
 type EditFoodPageProps = {
   params: { id: string };
 };
 
-export default async function EditFoodPage({ params }: EditFoodPageProps) {
+export async function loadFoodData(foodId: string) {
+  'use server';
   const [food, categories] = await Promise.all([
-    prisma.food.findUnique({ where: { id: params.id } }),
+    prisma.food.findUnique({ where: { id: foodId } }),
     prisma.category.findMany({ orderBy: { name: 'asc' } })
   ]);
+  return { food, categories };
+}
 
-  if (!food) notFound();
+export default async function EditFoodPage({ params }: EditFoodPageProps) {
+  const { food, categories } = await loadFoodData(params.id);
+
+  if (!food) {
+    notFound();
+  }
 
   return (
     <AdminProtected>
