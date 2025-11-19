@@ -7,12 +7,13 @@ import DetailFoodClient from './DetailFoodClient';
 export const revalidate = 0;
 
 type DetailFoodPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function DetailFoodPage({ params }: DetailFoodPageProps) {
+  const { id } = await params;
   const food = await prisma.food.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { category: true }
   });
 

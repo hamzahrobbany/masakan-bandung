@@ -7,7 +7,7 @@ import EditFoodClient from './EditFoodClient';
 export const revalidate = 0;
 
 type EditFoodPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export async function loadFoodData(foodId: string) {
@@ -20,7 +20,8 @@ export async function loadFoodData(foodId: string) {
 }
 
 export default async function EditFoodPage({ params }: EditFoodPageProps) {
-  const { food, categories } = await loadFoodData(params.id);
+  const { id } = await params;
+  const { food, categories } = await loadFoodData(id);
 
   if (!food) {
     notFound();
