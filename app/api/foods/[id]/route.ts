@@ -1,14 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from "next/server";
 import prisma from '@/lib/prisma';
 import { protectAdminRoute } from '@/lib/auth';
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(_request: NextRequest, context: { params: { id: string } }) {
+  const { params } = context;
   const food = await prisma.food.findUnique({ where: { id: params.id }, include: { category: true } });
   if (!food) {
     return NextResponse.json({ error: 'Food not found' }, { status: 404 });
@@ -16,7 +11,8 @@ export async function GET(_request: Request, { params }: Params) {
   return NextResponse.json(food);
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, context: { params: { id: string } }) {
+  const { params } = context;
   const guard = protectAdminRoute(request);
   if ('response' in guard) return guard.response;
   const body = await request.json();
@@ -37,7 +33,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   return NextResponse.json(food);
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+  const { params } = context;
   const guard = protectAdminRoute(request);
   if ('response' in guard) return guard.response;
   await prisma.food.delete({ where: { id: params.id } });

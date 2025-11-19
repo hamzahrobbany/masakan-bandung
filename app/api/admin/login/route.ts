@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from "next/server";
 import prisma from '@/lib/prisma';
 import { attachSessionCookie, verifyPassword } from '@/lib/auth';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const { email, password } = await request.json();
   if (!email || !password) {
     return NextResponse.json({ error: 'Email dan password wajib diisi' }, { status: 400 });

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from "next/server";
 import prisma from '@/lib/prisma';
 import { protectAdminRoute } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const foods = await prisma.food.findMany({ include: { category: true }, orderBy: { createdAt: 'desc' } });
   return NextResponse.json(foods);
 }
