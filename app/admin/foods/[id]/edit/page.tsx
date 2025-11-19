@@ -1,12 +1,12 @@
+"use server";
+
 import { notFound } from 'next/navigation';
 import AdminProtected from '@/components/AdminProtected';
 import FoodForm from '@/components/FoodForm';
 import prisma from '@/lib/prisma';
 
 type EditFoodPageProps = {
-  params: {
-    id: string;
-  };
+  params: { id: string };
 };
 
 export default async function EditFoodPage({ params }: EditFoodPageProps) {
@@ -15,17 +15,11 @@ export default async function EditFoodPage({ params }: EditFoodPageProps) {
     prisma.category.findMany({ orderBy: { name: 'asc' } })
   ]);
 
-  if (!food) {
-    notFound();
-  }
+  if (!food) notFound();
 
   return (
     <AdminProtected>
       <div className="space-y-6">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-emerald-600">Admin</p>
-          <h1 className="text-3xl font-bold text-slate-900">Edit Makanan</h1>
-        </div>
         <FoodForm
           categories={categories}
           foodId={food.id}

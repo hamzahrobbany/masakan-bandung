@@ -1,26 +1,40 @@
 import { NextResponse, NextRequest } from "next/server";
-import prisma from '@/lib/prisma';
-import { protectAdminRoute } from '@/lib/auth';
+import prisma from "@/lib/prisma";
+import { protectAdminRoute } from "@/lib/auth";
 
-type ParamsPromise = { params: Promise<{ id: string }> };
+// FIX: params bukan Promise
+type Params = { params: { id: string } };
 
-export async function GET(_request: NextRequest, context: ParamsPromise) {
-  const { id } = await context.params;
-  const food = await prisma.food.findUnique({ where: { id }, include: { category: true } });
+export async function GET(_request: NextRequest, context: Params) {
+  const { id } = context.params;
+
+  const food = await prisma.food.findUnique({
+    where: { id },
+    include: { category: true }
+  });
+
   if (!food) {
-    return NextResponse.json({ error: 'Food not found' }, { status: 404 });
+    return NextResponse.json({ error: "Food not found" }, { status: 404 });
   }
+
   return NextResponse.json(food);
 }
 
-export async function PUT(request: NextRequest, context: ParamsPromise) {
-  const { id } = await context.params;
+export async function PUT(request: NextRequest, context: Params) {
+  const { id } = context.params;
+
   const guard = protectAdminRoute(request);
-  if ('response' in guard) return guard.response;
+  if ("response" in guard) return guard.response;
+
   const body = await request.json();
+
   if (!body.name || body.price === undefined || !body.imageUrl) {
-    return NextResponse.json({ error: 'Data makanan belum lengkap' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Data makanan belum lengkap" },
+      { status: 400 }
+    );
   }
+
   const food = await prisma.food.update({
     where: { id },
     data: {
@@ -32,13 +46,19 @@ export async function PUT(request: NextRequest, context: ParamsPromise) {
     },
     include: { category: true }
   });
+
   return NextResponse.json(food);
 }
 
-export async function DELETE(request: NextRequest, context: ParamsPromise) {
-  const { id } = await context.params;
+export async function DELETE(request: NextRequest, context: Params) {
+  const { id } = context.params;
+
   const guard = protectAdminRoute(request);
-  if ('response' in guard) return guard.response;
-  await prisma.food.delete({ where: { id } });
+  if ("response" in guard) return guard.response;
+
+  await prisma.food.delete({
+    where: { id }
+  });
+
   return NextResponse.json({ success: true });
 }
