@@ -5,11 +5,12 @@ import { protectAdminRoute } from '@/lib/auth';
 import { sanitizeFoodPayload } from '@/lib/food-validation';
 import prisma from '@/lib/prisma';
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: Params) {
   try {
-    const { id } = context.params;
+    const { id } = await context.params; // ✅ FIX
+
     const food = await prisma.food.findUnique({
       where: { id },
       include: { category: true }
@@ -31,9 +32,11 @@ export async function PUT(request: NextRequest, context: Params) {
   if ('response' in guard) return guard.response;
 
   try {
-    const { id } = context.params;
+    const { id } = await context.params; // ✅ FIX
+
     const body = await request.json().catch(() => null);
     const result = sanitizeFoodPayload(body);
+
     if (result.error || !result.value) {
       return NextResponse.json({ error: result.error ?? 'Payload tidak valid' }, { status: 400 });
     }
@@ -65,8 +68,10 @@ export async function DELETE(request: NextRequest, context: Params) {
   if ('response' in guard) return guard.response;
 
   try {
-    const { id } = context.params;
+    const { id } = await context.params; // ✅ FIX
+
     await prisma.food.delete({ where: { id } });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
