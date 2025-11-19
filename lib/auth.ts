@@ -2,6 +2,7 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { serverEnv } from '@/lib/env';
 import {
   ADMIN_CSRF_COOKIE,
   ADMIN_SESSION_COOKIE,
@@ -12,11 +13,7 @@ const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 hari
 const JWT_HEADER = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
 
 function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET belum diatur.');
-  }
-  return secret;
+  return serverEnv.jwtSecret;
 }
 
 function base64UrlEncode(payload: object) {
@@ -24,11 +21,7 @@ function base64UrlEncode(payload: object) {
 }
 
 function getAdminSecret() {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    throw new Error('ADMIN_SECRET belum diatur.');
-  }
-  return secret;
+  return serverEnv.adminSecret;
 }
 
 function hashCsrfToken(token: string) {
@@ -129,7 +122,7 @@ export function destroyAdminSession(response: NextResponse) {
 }
 
 export async function getAdminSessionFromCookies() {
-  const store = cookies();
+  const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
   return verifySessionToken(token);

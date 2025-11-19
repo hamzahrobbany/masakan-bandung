@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { ADMIN_LOGIN_PATH, ADMIN_ROUTE_PREFIX, ADMIN_SESSION_COOKIE } from '@/lib/security';
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith(ADMIN_ROUTE_PREFIX)) {
     return NextResponse.next();
   }

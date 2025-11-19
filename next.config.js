@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  productionBrowserSourceMaps: false,
   images: {
     remotePatterns: [
       {
@@ -11,6 +12,12 @@ const nextConfig = {
         hostname: 'images.unsplash.com'
       }
     ]
+  },
+  webpack(config, { isServer }) {
+    if (isServer) {
+      config.devtool = false;
+    }
+    return config;
   }
 };
 

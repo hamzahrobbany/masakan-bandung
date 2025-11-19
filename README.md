@@ -21,7 +21,7 @@ Aplikasi katalog kuliner berbasis Next.js 15 dengan panel admin, upload gambar k
    ```bash
    npm install
    ```
-3. Duplikasi file `.env.example` menjadi `.env.local`, kemudian isi seluruh variabel (`DATABASE_URL`, kredensial Supabase, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `ADMIN_SECRET`, dan nomor WhatsApp admin).
+3. Duplikasi file `.env.example` menjadi `.env.local`, kemudian isi seluruh variabel (`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET`, `JWT_SECRET`, `ADMIN_SECRET`, dan nomor WhatsApp admin).
 4. Jalankan perintah pembangunan awal Prisma (pilih salah satu):
    ```bash
    npx prisma migrate dev --name init
@@ -57,14 +57,14 @@ Aplikasi katalog kuliner berbasis Next.js 15 dengan panel admin, upload gambar k
 ## Cara Setup Supabase Bucket
 1. Masuk ke dashboard Supabase → Storage → buat bucket publik bernama `masakan-bandung`.
 2. Aktifkan Row Level Security lalu jalankan SQL pada `supabase/policies.sql` agar hanya role `admin` yang bisa menulis dan publik tetap dapat membaca.
-3. Catat **Project URL**, **anon key**, dan **service role key** lalu isi ke `.env.local` sebagai `SUPABASE_URL`, `SUPABASE_ANON_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY`.
+3. Catat **Project URL**, **anon key**, dan **service role key** lalu isi ke `.env.local` sebagai `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, serta `SUPABASE_SERVICE_ROLE_KEY`. Jangan lupa tetapkan `SUPABASE_BUCKET="masakan-bandung"`.
 4. Pada bucket, buat folder `uploads/` untuk file makanan agar tetap rapi.
 5. Pastikan role `admin` tersedia di JWT Supabase bila ingin memakai policy role-based.
 
 ## Cara Deploy ke Vercel
 1. Push repositori ini ke GitHub (atau penyedia Git lainnya).
 2. Di Vercel, buat project baru dan pilih repositori tersebut.
-3. Pada tab **Environment Variables**, isikan seluruh variabel dari `.env.local` (DATABASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_ADMIN_WHATSAPP, JWT_SECRET, ADMIN_SECRET).
+3. Pada tab **Environment Variables**, isikan seluruh variabel dari `.env.local` (DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_BUCKET, NEXT_PUBLIC_ADMIN_WHATSAPP, JWT_SECRET, ADMIN_SECRET).
 4. Aktifkan Prisma Data Proxy atau gunakan koneksi langsung ke database produksi (misal Neon). Pastikan database dapat diakses oleh Vercel.
 5. Setelah deploy berhasil, jalankan migrasi produksi:
    ```bash
