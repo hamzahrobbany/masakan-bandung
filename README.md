@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Masakan Bandung
 
-## Getting Started
+Aplikasi katalog makanan khas Bandung dengan panel admin, integrasi Supabase Storage untuk upload gambar, dan alur checkout via WhatsApp.
 
-First, run the development server:
+## Instalasi
+
+1. Pastikan Node.js 18+ dan npm telah terpasang.
+2. Clone repository ini lalu masuk ke folder proyek.
+3. Instal dependensi:
+
+```bash
+npm install
+```
+
+4. Salin file `.env.local.example` menjadi `.env.local` lalu isi setiap variabel.
+
+5. Jalankan Prisma untuk membuat skema database:
+
+```bash
+npx prisma db push
+```
+
+6. Isi data awal (admin + contoh menu) menggunakan perintah:
+
+```bash
+npm run seed
+```
+
+## Penggunaan
+
+- **Customer** dapat melihat daftar kategori & menu di halaman utama (`/`), menambah item ke keranjang (`/cart`), lalu membuat format pesan WhatsApp di halaman checkout (`/checkout`).
+- **Admin** melakukan login di `/admin/login`, mengelola makanan di `/admin/foods`, menambah data via `/admin/foods/new`, dan mengedit menggunakan `/admin/foods/[id]/edit`.
+- Seluruh API berada pada `/api/*` dan dilindungi JWT berbasis cookie untuk operasi admin.
+
+## Cara Menjalankan Secara Lokal
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Server lokal akan tersedia di `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy ke Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push repository ini ke GitHub.
+2. Buat proyek baru di [Vercel](https://vercel.com/new) dan pilih repository.
+3. Pada halaman konfigurasi, tambahkan environment variables yang sama seperti `.env.local`.
+4. Aktifkan Prisma Data Proxy atau gunakan database produksi seperti Neon (lihat bagian di bawah).
+5. Setelah deploy selesai, jalankan `npx prisma migrate deploy` via Vercel CLI / job bila menggunakan migrasi berbasis file.
 
-## Learn More
+## Konfigurasi Supabase Storage
 
-To learn more about Next.js, take a look at the following resources:
+1. Buat project di [Supabase](https://supabase.com/).
+2. Buat bucket Storage bernama `foods` dan atur policy publik (read-only) agar gambar dapat diakses.
+3. Salin **Project URL** dan **anon public key** ke `.env.local` sebagai `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+4. Pastikan bucket mengizinkan upload melalui REST API (policy: `insert` oleh anon key) atau gunakan service key bila diperlukan.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Koneksi ke Neon (PostgreSQL)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Buat database PostgreSQL gratis di [Neon](https://neon.tech/).
+2. Salin connection string ke variabel `DATABASE_URL` pada `.env.local`.
+3. Jalankan `npx prisma migrate deploy` atau `npx prisma db push` untuk menyinkronkan skema.
+4. Gunakan koneksi yang sama di Vercel dengan menambahkan variabel `DATABASE_URL` pada pengaturan project.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Selamat membangun dan selamat menikmati Masakan Bandung! 🍲
