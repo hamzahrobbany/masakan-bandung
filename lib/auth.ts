@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
-import type { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const ADMIN_COOKIE = 'masakan-bandung-admin';
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 hari
@@ -100,4 +100,12 @@ export function getAdminSessionFromRequest(request: NextRequest) {
 export function attachSessionCookie(response: NextResponse, payload: AdminSessionPayload) {
   const token = createSessionToken(payload);
   persistAdminSession(response, token);
+}
+
+export function protectAdminRoute(request: NextRequest) {
+  const session = getAdminSessionFromRequest(request);
+  if (!session) {
+    return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  return { session } as const;
 }

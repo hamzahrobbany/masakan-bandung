@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback } from 'react';
+import { CART_STORAGE_KEY, formatCurrency } from '@/lib/utils';
 
 type StoredItem = {
   id: string;
@@ -22,16 +23,10 @@ export type FoodCardProps = {
   };
 };
 
-const currency = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
-  maximumFractionDigits: 0
-});
-
 export default function FoodCard({ food }: FoodCardProps) {
   const handleAddToCart = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const existing = window.localStorage.getItem('masakan-bandung-cart');
+    const existing = window.localStorage.getItem(CART_STORAGE_KEY);
     const parsed: StoredItem[] = existing ? JSON.parse(existing) : [];
     const index = parsed.findIndex((item) => item.id === food.id);
     if (index > -1) {
@@ -45,7 +40,7 @@ export default function FoodCard({ food }: FoodCardProps) {
         quantity: 1
       });
     }
-    window.localStorage.setItem('masakan-bandung-cart', JSON.stringify(parsed));
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(parsed));
     alert(`${food.name} masuk keranjang!`);
   }, [food]);
 
@@ -68,7 +63,7 @@ export default function FoodCard({ food }: FoodCardProps) {
           {food.description && <p className="text-sm text-slate-600">{food.description}</p>}
         </div>
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-base font-semibold text-slate-900">{currency.format(food.price)}</span>
+          <span className="text-base font-semibold text-slate-900">{formatCurrency(food.price)}</span>
           <button
             type="button"
             onClick={handleAddToCart}

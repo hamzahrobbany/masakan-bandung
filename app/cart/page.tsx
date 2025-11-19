@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { startTransition, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { CART_STORAGE_KEY, formatCurrency } from '@/lib/utils';
 
 type CartItem = {
   id: string;
@@ -13,19 +14,13 @@ type CartItem = {
   quantity: number;
 };
 
-const currency = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
-  maximumFractionDigits: 0
-});
-
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem('masakan-bandung-cart');
+    const stored = window.localStorage.getItem(CART_STORAGE_KEY);
     startTransition(() => {
       setItems(stored ? JSON.parse(stored) : []);
     });
@@ -34,7 +29,7 @@ export default function CartPage() {
   const persist = (nextItems: CartItem[]) => {
     setItems(nextItems);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('masakan-bandung-cart', JSON.stringify(nextItems));
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextItems));
     }
   };
 
@@ -70,7 +65,7 @@ export default function CartPage() {
             </div>
             <div className="flex-1">
               <p className="text-lg font-semibold text-slate-900">{item.name}</p>
-              <p className="text-sm text-slate-500">{currency.format(item.price)}</p>
+              <p className="text-sm text-slate-500">{formatCurrency(item.price)}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -109,7 +104,7 @@ export default function CartPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between text-lg font-semibold">
             <span>Total</span>
-            <span>{currency.format(total)}</span>
+            <span>{formatCurrency(total)}</span>
           </div>
           <button
             type="button"

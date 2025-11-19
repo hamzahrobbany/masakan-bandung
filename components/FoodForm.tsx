@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '@/lib/utils';
 
 type CategoryOption = {
   id: string;
@@ -21,15 +22,10 @@ type FoodFormProps = {
   categories: CategoryOption[];
   initialData?: FoodInitialData;
   foodId?: string;
+  onUploadSuccess?: (imageUrl: string) => void;
 };
 
-const currency = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
-  maximumFractionDigits: 0
-});
-
-export default function FoodForm({ categories, initialData, foodId }: FoodFormProps) {
+export default function FoodForm({ categories, initialData, foodId, onUploadSuccess }: FoodFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(initialData?.name ?? '');
@@ -56,6 +52,7 @@ export default function FoodForm({ categories, initialData, foodId }: FoodFormPr
       }
       const data = await response.json();
       setImageUrl(data.url);
+      onUploadSuccess?.(data.url);
       setSuccess('Gambar berhasil diunggah.');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat upload';
@@ -123,7 +120,7 @@ export default function FoodForm({ categories, initialData, foodId }: FoodFormPr
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-slate-700">Harga ({currency.format(Number(price || 0))})</label>
+        <label className="text-sm font-medium text-slate-700">Harga ({formatCurrency(Number(price || 0))})</label>
         <input
           type="number"
           min="0"

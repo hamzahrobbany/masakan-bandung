@@ -1,12 +1,7 @@
 'use client';
 
-import { startTransition, useEffect, useMemo, useState } from 'react';
-
-const currency = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
-  maximumFractionDigits: 0
-});
+import { startTransition, useEffect, useState } from 'react';
+import { buildWhatsAppMessage, buildWhatsAppUrl, CART_STORAGE_KEY, formatCurrency } from '@/lib/utils';
 
 const whatsappNumber = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '6287785817414';
 
@@ -22,7 +17,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem('masakan-bandung-cart');
+    const stored = window.localStorage.getItem(CART_STORAGE_KEY);
     startTransition(() => {
       setItems(stored ? JSON.parse(stored) : []);
     });
@@ -30,18 +25,8 @@ export default function CheckoutPage() {
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  const message = useMemo(() => {
-    if (items.length === 0) {
-      return 'Halo! Saya ingin memesan makanan dari Masakan Bandung.';
-    }
-    const lines = items.map((item) => `- ${item.name} (${item.quantity}x) : ${currency.format(item.price * item.quantity)}`);
-    lines.push(`Total: ${currency.format(total)}`);
-    lines.push('Nama:');
-    lines.push('Alamat:');
-    return `Halo! Saya ingin memesan:\n${lines.join('\n')}`;
-  }, [items, total]);
-
-  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+  const message = buildWhatsAppMessage(items);
+  const whatsappUrl = buildWhatsAppUrl(whatsappNumber, message);
 
   return (
     <div className="space-y-6">
@@ -52,7 +37,7 @@ export default function CheckoutPage() {
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-600">Salin atau langsung kirim format pesan berikut ke admin.</p>
         <textarea value={message} readOnly className="h-48 w-full rounded-2xl border border-slate-200 p-4" />
-        <p className="text-lg font-semibold text-slate-900">Total: {currency.format(total)}</p>
+        <p className="text-lg font-semibold text-slate-900">Total: {formatCurrency(total)}</p>
         <a
           href={whatsappUrl}
           target="_blank"

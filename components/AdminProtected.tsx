@@ -1,11 +1,55 @@
-import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { getAdminSessionFromCookies } from '@/lib/auth';
+'use client';
 
-export default async function AdminProtected({ children }: { children: ReactNode }) {
-  const session = await getAdminSessionFromCookies();
-  if (!session) {
-    redirect('/admin/login');
+import { ReactNode, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type AdminProtectedProps = {
+  children: ReactNode;
+};
+
+export default function AdminProtected({ children }: AdminProtectedProps) {
+  const router = useRouter();
+  const [status, setStatus] = useState<'loading' | 'authenticated'>('loading');
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    fetch('/api/admin/session', {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Unauthorized');
+        }
+        return response.json();
+      })
+      .then(() => {
+        if (isMounted) {
+          setStatus('authenticated');
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          router.replace('/admin/login');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [router]);
+
+  if (status === 'loading') {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+        Memeriksa sesi admin...
+      </div>
+    );
   }
+
   return <>{children}</>;
 }

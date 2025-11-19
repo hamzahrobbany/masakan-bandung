@@ -18,7 +18,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Kredensial salah' }, { status: 401 });
   }
 
-  const response = NextResponse.json({ success: true });
-  attachSessionCookie(response, { id: admin.id, email: admin.email, name: admin.name });
+  const adminPayload = { id: admin.id, email: admin.email, name: admin.name };
+  const response = NextResponse.json({ success: true, admin: adminPayload });
+  attachSessionCookie(response, adminPayload);
   return response;
 }

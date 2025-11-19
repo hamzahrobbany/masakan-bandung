@@ -1,12 +1,7 @@
 import Link from 'next/link';
 import AdminProtected from '@/components/AdminProtected';
 import prisma from '@/lib/prisma';
-
-const currency = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR',
-  maximumFractionDigits: 0
-});
+import { formatCurrency } from '@/lib/utils';
 
 export default async function AdminFoodsPage() {
   const foods = await prisma.food.findMany({
@@ -41,7 +36,7 @@ export default async function AdminFoodsPage() {
                 <tr key={food.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{food.name}</td>
                   <td className="px-4 py-3 text-slate-500">{food.category?.name ?? 'Tanpa kategori'}</td>
-                  <td className="px-4 py-3 text-slate-500">{currency.format(food.price)}</td>
+                  <td className="px-4 py-3 text-slate-500">{formatCurrency(food.price)}</td>
                   <td className="px-4 py-3 text-right">
                     <Link href={`/admin/foods/${food.id}/edit`} className="text-emerald-600">
                       Edit

@@ -24,7 +24,7 @@ export default async function EditFoodPage({ params }: EditFoodPageProps) {
       <div className="space-y-6">
         <div>
           <p className="text-sm uppercase tracking-wide text-emerald-600">Admin</p>
-          <h1 className="text-3xl font-bold text-slate-900">Edit {food.name}</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Edit Makanan</h1>
         </div>
         <FoodForm
           categories={categories}
@@ -33,7 +33,7 @@ export default async function EditFoodPage({ params }: EditFoodPageProps) {
             name: food.name,
             price: food.price,
             categoryId: food.categoryId,
-            description: food.description ?? '',
+            description: food.description ?? undefined,
             imageUrl: food.imageUrl
           }}
         />

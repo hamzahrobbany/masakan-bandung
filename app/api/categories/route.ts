@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAdminSessionFromRequest } from '@/lib/auth';
+import { protectAdminRoute } from '@/lib/auth';
 
 export async function GET() {
   const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
@@ -8,10 +8,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = getAdminSessionFromRequest(request);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const guard = protectAdminRoute(request);
+  if ('response' in guard) return guard.response;
   const body = await request.json();
   if (!body.name) {
     return NextResponse.json({ error: 'Nama kategori wajib diisi' }, { status: 400 });
