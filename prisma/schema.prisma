@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -7,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
+// ENUMS
 enum OrderStatus {
   PENDING
   PROCESSED
@@ -15,26 +16,35 @@ enum OrderStatus {
   CANCELLED
 }
 
+// CATEGORY
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
   foods     Food[]
   createdAt DateTime @default(now())
+
+  @@index([name])
 }
 
+// FOOD
 model Food {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   name        String
   price       Int
   description String?
   imageUrl    String
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id])
+  isAvailable Boolean     @default(true)
+
   orderItems  OrderItem[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([categoryId])
 }
 
+// ORDER
 model Order {
   id            String      @id @default(uuid())
   customerName  String?
@@ -42,27 +52,42 @@ model Order {
   note          String?
   status        OrderStatus @default(PENDING)
   total         Int
+
   items         OrderItem[]
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
+// ORDER ITEMS
 model OrderItem {
   id        String   @id @default(uuid())
+
   orderId   String
   foodId    String?
+
   foodName  String
   foodPrice Int
   quantity  Int
+
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   food      Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
+// ADMIN
 model Admin {
   id           String   @id @default(uuid())
   name         String
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+
+  @@index([email])
 }

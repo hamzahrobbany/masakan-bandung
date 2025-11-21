@@ -1,5 +1,6 @@
 import FoodCard from '@/components/FoodCard';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
+
 
 export const revalidate = 0;
 

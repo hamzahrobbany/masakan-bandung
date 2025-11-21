@@ -5,7 +5,7 @@ import {
   getAdminSessionFromRequest,
   persistAdminCsrfToken
 } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 // ===========================================================
 // GET /api/admin/session

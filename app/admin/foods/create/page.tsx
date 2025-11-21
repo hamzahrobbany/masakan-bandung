@@ -1,40 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Form, Input, InputNumber, Select, Button, Switch, message } from "antd";
-import { useRouter, useParams } from "next/navigation";
+import { Form, Input, Button, InputNumber, Select, Upload, message } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
 
-export default function EditFoodPage() {
-  const params = useParams();
-  const id = params.id;
+export default function CreateFoodPage() {
+  const [categories, setCategories] = useState([]);
   const router = useRouter();
 
-  const [categories, setCategories] = useState([]);
-  const [form] = Form.useForm();
+  const fetchCategories = async () => {
+    const res = await fetch("/api/categories");
+    const json = await res.json();
+    setCategories(json);
+  };
 
   useEffect(() => {
-    fetch("/api/categories").then((r) => r.json()).then(setCategories);
-
-    fetch(`/api/foods/${id}`)
-      .then((r) => r.json())
-      .then((data) => form.setFieldsValue(data));
-  }, [id, form]);
+    fetchCategories();
+  }, []);
 
   const onFinish = async (values: any) => {
-    await fetch(`/api/foods/${id}`, {
-      method: "PUT",
+    await fetch("/api/foods", {
+      method: "POST",
       body: JSON.stringify(values),
     });
 
-    message.success("Food diperbarui");
+    message.success("Food ditambahkan");
     router.push("/admin/foods");
   };
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Edit Food</h1>
+      <h1 className="text-xl font-bold mb-4">Tambah Food</h1>
 
-      <Form form={form} layout="vertical" onFinish={onFinish} style={{ maxWidth: 500 }}>
+      <Form layout="vertical" onFinish={onFinish} style={{ maxWidth: 500 }}>
         <Form.Item name="name" label="Nama" rules={[{ required: true }]}>
           <Input />
         </Form.Item>
@@ -53,15 +52,11 @@ export default function EditFoodPage() {
         </Form.Item>
 
         <Form.Item name="imageUrl" label="URL Gambar (sementara)">
-          <Input />
-        </Form.Item>
-
-        <Form.Item name="isAvailable" label="Status" valuePropName="checked">
-          <Switch checkedChildren="Tersedia" unCheckedChildren="Habis" />
+          <Input placeholder="https://..." />
         </Form.Item>
 
         <Button type="primary" htmlType="submit">
-          Update
+          Simpan
         </Button>
       </Form>
     </div>

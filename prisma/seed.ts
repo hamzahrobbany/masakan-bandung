@@ -1,28 +1,26 @@
-// prisma/seed.ts
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-import prisma from '../lib/prisma';
-import { hashPassword } from '../lib/auth.seed';
+const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await hashPassword('admin123');
+  const passwordHash = await bcrypt.hash("admin123", 10);
 
   await prisma.admin.upsert({
-    where: { email: 'admin@masakan.id' },
+    where: { email: "admin@masakan.com" },
     update: {},
     create: {
-      email: 'admin@masakan.id',
-      name: 'Super Admin',
+      name: "Super Admin",
+      email: "admin@masakan.com",
       passwordHash,
     },
   });
 
-  console.log('Seeder sukses → admin@masakan.id / admin123');
+  console.log("Admin default berhasil dibuat:");
+  console.log("Email: admin@masakan.com");
+  console.log("Password: admin123");
 }
 
 main()
-  .then(() => prisma.$disconnect())
-  .catch(async (err) => {
-    console.error(err);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+  .catch((err) => console.error(err))
+  .finally(() => prisma.$disconnect());
