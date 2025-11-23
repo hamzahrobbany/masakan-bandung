@@ -1,7 +1,7 @@
 // app/admin/orders/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
@@ -35,17 +35,34 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/orders");
-    setLoading(false);
-    const data = await res.json();
-    setOrders(data);
-  }
+    try {
+      const token = requireAdminToken();
+      const res = await fetch("/api/admin/orders", {
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Gagal memuat pesanan");
+      }
+
+      const data = await res.json();
+      setOrders(data);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Token admin tidak ditemukan";
+      alert(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [loadOrders]);
 
   function requireAdminToken() {
     const token = readAdminToken();
@@ -91,7 +108,7 @@ export default function AdminOrdersPage() {
 
         {orders.length === 0 && !loading ? (
           <div className="text-sm text-slate-500">
-            Belum ada pesanan.
+            Belum ada pesanan karena checkout publik belum aktif.
           </div>
         ) : (
           <div className="space-y-4">

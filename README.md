@@ -81,4 +81,21 @@ npm start        # Menjalankan server Next.js produksi
 npm run seed     # Menyisipkan data contoh (admin, kategori, makanan)
 ```
 
+## Uji Manual Admin Orders
+Setelah endpoint POST `/api/orders` aktif (checkout publik tersedia), jalankan uji manual ini:
+
+1. Buka aplikasi (`npm run dev`) lalu kirim request POST ke `http://localhost:3000/api/orders` dengan payload contoh:
+   ```json
+   {
+     "customerName": "Tester",
+     "customerPhone": "+6212345",
+     "note": "catatan",
+     "items": [
+       { "foodId": "<food-id-valid>", "quantity": 1 }
+     ]
+   }
+   ```
+2. Masuk ke `/admin/orders`, pastikan pesanan baru muncul di daftar.
+3. Ubah status pesanan (PENDING → PROCESSED/DONE/CANCELLED) dan pastikan UI memperbarui status tanpa error.
+
 Selamat menggunakan Masakan Bandung dan semoga lancar berjualan! 🍲
