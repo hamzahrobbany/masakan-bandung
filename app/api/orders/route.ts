@@ -45,6 +45,46 @@ function validateItems(raw: unknown): OrderItemInput[] | null {
   return normalized;
 }
 
+export async function GET(request: NextRequest) {
+  try {
+    const idsParam = request.nextUrl.searchParams.get("ids");
+    if (!idsParam) {
+      return NextResponse.json({ error: "Parameter ids wajib diisi" }, { status: 400 });
+    }
+
+    const ids = idsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "Daftar ids tidak valid" }, { status: 400 });
+    }
+
+    const foods = await prisma.food.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, price: true, stock: true, isAvailable: true },
+    });
+
+    if (foods.length === 0) {
+      return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      items: foods.map((food) => ({
+        id: food.id,
+        name: food.name,
+        price: food.price,
+        stock: food.stock,
+        isAvailable: food.isAvailable,
+      })),
+    });
+  } catch (error) {
+    console.error("Gagal mengambil detail order:", error);
+    return NextResponse.json({ error: "Gagal memuat detail menu" }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null);
@@ -74,11 +114,11 @@ export async function POST(request: NextRequest) {
 
     const foods = await prisma.food.findMany({
       where: { id: { in: aggregated.map((item) => item.foodId) } },
-      select: { id, name: true, price: true, stock: true, isAvailable: true },
+      select: { id: true, name: true, price: true, stock: true, isAvailable: true },
     });
 
     if (foods.length !== aggregated.length) {
-      return NextResponse.json({ error: "Ada menu yang tidak ditemukan" }, { status: 400 });
+      return NextResponse.json({ error: "Ada menu yang tidak ditemukan" }, { status: 404 });
     }
 
     const foodMap = new Map(foods.map((food) => [food.id, food]));
@@ -86,7 +126,7 @@ export async function POST(request: NextRequest) {
     for (const item of aggregated) {
       const food = foodMap.get(item.foodId)!;
       if (!food.isAvailable) {
-        return NextResponse.json({ error: `${food.name} sedang tidak tersedia` }, { status: 400 });
+        return NextResponse.json({ error: `${food.name} sedang tidak tersedia` }, { status: 404 });
       }
       if (food.stock < item.quantity) {
         return NextResponse.json(

@@ -16,6 +16,14 @@ type OrderResponse = {
   status: string;
 };
 
+type FoodSummary = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  isAvailable: boolean;
+};
+
 const whatsappNumber = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '6287785817414';
 
 export default function CheckoutPage() {
@@ -40,33 +48,134 @@ export default function CheckoutPage() {
   const message = buildWhatsAppMessage(items);
   const whatsappUrl = buildWhatsAppUrl(whatsappNumber, message);
 
+  async function synchronizeCartWithBackend(currentItems: CartItem[]) {
+    try {
+      const ids = Array.from(new Set(currentItems.map((item) => item.id)));
+      const params = new URLSearchParams({ ids: ids.join(',') });
+      const response = await fetch(`/api/orders?${params.toString()}`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setStatus('error');
+        if (response.status === 404) {
+          setFeedback(data?.error ?? 'Menu tidak ditemukan.');
+        } else {
+          setFeedback(data?.error ?? 'Gagal memuat detail menu terbaru.');
+        }
+        return null;
+      }
+
+      const summaries = (data.items as FoodSummary[]) ?? [];
+      const summaryMap = new Map(summaries.map((item) => [item.id, item]));
+
+      let changed = false;
+      const nextItems: CartItem[] = [];
+
+      for (const item of currentItems) {
+        const summary = summaryMap.get(item.id);
+        if (!summary || !summary.isAvailable || summary.stock <= 0) {
+          changed = true;
+          continue;
+        }
+
+        const adjustedQuantity = Math.min(item.quantity, summary.stock);
+        if (
+          adjustedQuantity !== item.quantity ||
+          summary.price !== item.price ||
+          summary.name !== item.name
+        ) {
+          changed = true;
+        }
+
+        nextItems.push({
+          ...item,
+          name: summary.name,
+          price: summary.price,
+          quantity: adjustedQuantity,
+        });
+      }
+
+      if (!nextItems.length) {
+        setStatus('error');
+        setFeedback('Menu tidak tersedia atau stok habis. Silakan pilih menu lain.');
+        setItems([]);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(CART_STORAGE_KEY);
+        }
+        return null;
+      }
+
+      if (changed) {
+        setItems(nextItems);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextItems));
+        }
+      }
+
+      return nextItems;
+    } catch (error) {
+      console.error('Sync cart error:', error);
+      setStatus('error');
+      setFeedback('Gagal memuat detail terbaru. Periksa koneksi internet Anda.');
+      return null;
+    }
+  }
+
   async function createOrder() {
+    if (!items.length) {
+      setFeedback('Keranjang masih kosong.');
+      setStatus('error');
+      return;
+    }
+
     setStatus('loading');
     setFeedback('');
     setLastOrder(null);
 
-    const response = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customerName: customerName.trim() || null,
-        customerPhone: customerPhone.trim() || null,
-        note: note.trim() || null,
-        items: items.map((item) => ({ foodId: item.id, quantity: item.quantity }))
-      })
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      setStatus('error');
-      setFeedback(data?.error ?? 'Gagal membuat pesanan, coba lagi.');
+    const syncedItems = await synchronizeCartWithBackend(items);
+    if (!syncedItems) {
       return;
     }
 
-    setStatus('success');
-    setFeedback('Pesanan tersimpan. Admin akan memproses pesanan Anda.');
-    setLastOrder({ id: data.id, status: data.status });
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: customerName.trim() || null,
+          customerPhone: customerPhone.trim() || null,
+          note: note.trim() || null,
+          items: syncedItems.map((item) => ({ foodId: item.id, quantity: item.quantity }))
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setStatus('error');
+        if (response.status === 404) {
+          setFeedback(data?.error ?? 'Ada menu yang tidak ditemukan atau stok habis.');
+        } else if (response.status >= 500) {
+          setFeedback('Server bermasalah. Coba lagi beberapa saat.');
+        } else {
+          setFeedback(data?.error ?? 'Gagal membuat pesanan, coba lagi.');
+        }
+        return;
+      }
+
+      setStatus('success');
+      setFeedback('Pesanan tersimpan. Admin akan memproses pesanan Anda.');
+      setLastOrder({ id: data.id, status: data.status });
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(CART_STORAGE_KEY);
+      }
+      setItems([]);
+    } catch (error) {
+      console.error('Order submit error:', error);
+      setStatus('error');
+      setFeedback('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+    }
   }
 
   const hasItems = items.length > 0;
