@@ -69,12 +69,17 @@ export default function CheckoutPage() {
       const summaryMap = new Map(summaries.map((item) => [item.id, item]));
 
       let changed = false;
+      const removedItems: string[] = [];
+      const priceChangedItems: string[] = [];
+      const quantityAdjustedItems: string[] = [];
+
       const nextItems: CartItem[] = [];
 
       for (const item of currentItems) {
         const summary = summaryMap.get(item.id);
         if (!summary || !summary.isAvailable || summary.stock <= 0) {
           changed = true;
+          removedItems.push(item.name);
           continue;
         }
 
@@ -85,6 +90,12 @@ export default function CheckoutPage() {
           summary.name !== item.name
         ) {
           changed = true;
+          if (adjustedQuantity !== item.quantity) {
+            quantityAdjustedItems.push(summary.name);
+          }
+          if (summary.price !== item.price) {
+            priceChangedItems.push(summary.name);
+          }
         }
 
         nextItems.push({
@@ -110,6 +121,19 @@ export default function CheckoutPage() {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextItems));
         }
+
+        const notifications: string[] = [];
+        if (removedItems.length) {
+          notifications.push(`Beberapa menu habis: ${removedItems.join(', ')}`);
+        }
+        if (quantityAdjustedItems.length) {
+          notifications.push(`Jumlah disesuaikan dengan stok: ${quantityAdjustedItems.join(', ')}`);
+        }
+        if (priceChangedItems.length) {
+          notifications.push(`Harga terbaru berlaku untuk: ${priceChangedItems.join(', ')}`);
+        }
+        setFeedback(notifications.join(' | ') || 'Keranjang diperbarui dengan data terbaru.');
+        setStatus('error');
       }
 
       return nextItems;

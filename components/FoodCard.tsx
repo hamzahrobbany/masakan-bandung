@@ -12,6 +12,14 @@ type StoredItem = {
   quantity: number;
 };
 
+type FoodSummary = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  isAvailable: boolean;
+};
+
 export type FoodCardProps = {
   food: {
     id: string;
@@ -28,28 +36,59 @@ export type FoodCardProps = {
 };
 
 export default function FoodCard({ food }: FoodCardProps) {
-  const handleAddToCart = useCallback(() => {
-    if (!food.isAvailable || food.stock <= 0) {
-      alert('Menu ini tidak tersedia saat ini');
-      return;
-    }
+  const handleAddToCart = useCallback(async () => {
     if (typeof window === 'undefined') return;
-    const existing = window.localStorage.getItem(CART_STORAGE_KEY);
-    const parsed: StoredItem[] = existing ? JSON.parse(existing) : [];
-    const index = parsed.findIndex((item) => item.id === food.id);
-    if (index > -1) {
-      parsed[index].quantity += 1;
-    } else {
-      parsed.push({
-        id: food.id,
-        name: food.name,
-        price: food.price,
-        imageUrl: food.imageUrl,
-        quantity: 1,
-      });
+
+    try {
+      const params = new URLSearchParams({ ids: food.id });
+      const response = await fetch(`/api/orders?${params.toString()}`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        alert(data?.error ?? 'Menu tidak dapat dimasukkan ke keranjang saat ini.');
+        return;
+      }
+
+      const summaries = Array.isArray(data.items) ? (data.items as FoodSummary[]) : [];
+      const summary = summaries.find((item) => item.id === food.id);
+      if (!summary || !summary.isAvailable || summary.stock <= 0) {
+        alert('Menu ini sedang tidak tersedia.');
+        return;
+      }
+
+      const existing = window.localStorage.getItem(CART_STORAGE_KEY);
+      const parsed: StoredItem[] = existing ? JSON.parse(existing) : [];
+      const index = parsed.findIndex((item) => item.id === food.id);
+      const currentQuantity = index > -1 ? parsed[index].quantity : 0;
+
+      if (currentQuantity >= summary.stock) {
+        alert(`Stok ${food.name} tersisa ${summary.stock}.`);
+        return;
+      }
+
+      if (index > -1) {
+        parsed[index] = {
+          ...parsed[index],
+          name: summary.name,
+          price: summary.price,
+          quantity: parsed[index].quantity + 1,
+        };
+      } else {
+        parsed.push({
+          id: food.id,
+          name: summary.name,
+          price: summary.price,
+          imageUrl: food.imageUrl,
+          quantity: 1,
+        });
+      }
+
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(parsed));
+      alert(`${summary.name} masuk keranjang!`);
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert('Gagal memeriksa ketersediaan menu. Coba lagi.');
     }
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(parsed));
-    alert(`${food.name} masuk keranjang!`);
   }, [food]);
 
   return (
