@@ -1,14 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   const categories = await prisma.category.findMany({
     orderBy: { name: "asc" },
   });
   return NextResponse.json(categories);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   try {
     const { name } = await req.json();
     if (!name) {

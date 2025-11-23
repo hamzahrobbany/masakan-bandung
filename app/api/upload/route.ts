@@ -1,20 +1,20 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-import { protectAdminRoute } from '@/lib/auth';
-import { uploadImageToBucket } from '@/lib/supabase-server';
-import { assertValidUpload, buildUploadPath } from '@/lib/uploads';
+import { protectAdminRoute } from "@/lib/protect-admin-route";
+import { uploadImageToBucket } from "@/lib/supabase-server";
+import { assertValidUpload, buildUploadPath } from "@/lib/uploads";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const guard = protectAdminRoute(request);
-  if ('response' in guard) return guard.response;
+  if (guard) return guard;
 
   try {
     const formData = await request.formData();
-    const file = formData.get('file');
+    const file = formData.get("file");
     if (!file || !(file instanceof File)) {
-      return NextResponse.json({ error: 'File tidak ditemukan' }, { status: 400 });
+      return NextResponse.json({ error: "File tidak ditemukan" }, { status: 400 });
     }
 
     let mime: string;
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       mime = assertValidUpload({ size: file.size, type: file.type });
     } catch (validationError) {
       const message =
-        validationError instanceof Error ? validationError.message : 'File tidak valid untuk diunggah.';
+        validationError instanceof Error ? validationError.message : "File tidak valid untuk diunggah.";
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
@@ -30,12 +30,12 @@ export async function POST(request: NextRequest) {
     const { publicUrl } = await uploadImageToBucket({
       filePath: path,
       data: await file.arrayBuffer(),
-      contentType: mime
+      contentType: mime,
     });
 
-    return NextResponse.json({ url: publicUrl }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ url: publicUrl }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Gagal mengunggah gambar' }, { status: 500 });
+    console.error("Upload error:", error);
+    return NextResponse.json({ error: "Gagal mengunggah gambar" }, { status: 500 });
   }
 }

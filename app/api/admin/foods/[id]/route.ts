@@ -1,15 +1,30 @@
 // app/api/admin/foods/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
 type Params = { params: { id: string } };
 
-export async function PUT(req: Request, { params }: Params) {
+type FoodUpdatePayload = {
+  name?: string;
+  price?: number;
+  description?: string | null;
+  imageUrl?: string;
+  categoryId?: string;
+  isAvailable?: boolean;
+};
+
+export const runtime = "nodejs";
+
+export async function PUT(req: NextRequest, { params }: Params) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   try {
     const { id } = params;
-    const body = await req.json();
+    const body = (await req.json()) as FoodUpdatePayload;
 
-    const data: any = {};
+    const data: FoodUpdatePayload = {};
 
     if (typeof body.name === "string") data.name = body.name;
     if (typeof body.price === "number") data.price = body.price;
@@ -35,7 +50,10 @@ export async function PUT(req: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   try {
     const { id } = params;
     await prisma.food.delete({ where: { id } });
