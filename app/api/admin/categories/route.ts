@@ -25,10 +25,18 @@ export async function GET(req: NextRequest) {
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
-  const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-  });
-  return NextResponse.json(categories);
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(categories);
+  } catch (error) {
+    console.error("Gagal memuat kategori:", error);
+    return NextResponse.json(
+      { error: "Gagal memuat kategori" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

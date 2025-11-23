@@ -28,7 +28,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const { id } = params;
+    const id = params?.id?.trim();
+    if (!id) {
+      return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
+    }
+
     const { name } = await req.json();
 
     if (!name) {
@@ -61,11 +65,27 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
-  const { id } = params;
+  try {
+    const id = params?.id?.trim();
+    if (!id) {
+      return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
+    }
 
-  await prisma.category.delete({
-    where: { id },
-  });
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
+    }
 
-  return NextResponse.json({ success: true });
+    await prisma.category.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Gagal menghapus kategori:", error);
+    return NextResponse.json(
+      { error: "Gagal menghapus kategori" },
+      { status: 500 }
+    );
+  }
 }

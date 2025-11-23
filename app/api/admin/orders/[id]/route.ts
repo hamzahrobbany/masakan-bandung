@@ -13,7 +13,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const { id } = params;
+    const id = params?.id?.trim();
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID pesanan tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Pesanan tidak ditemukan" },
+        { status: 404 }
+      );
+    }
     const { status } = await req.json();
 
     if (

@@ -9,10 +9,18 @@ export async function GET(req: NextRequest) {
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
-  const orders = await prisma.order.findMany({
-    include: { items: true },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const orders = await prisma.order.findMany({
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return NextResponse.json(orders);
+    return NextResponse.json(orders);
+  } catch (error) {
+    console.error("Gagal memuat pesanan admin:", error);
+    return NextResponse.json(
+      { error: "Gagal memuat pesanan" },
+      { status: 500 }
+    );
+  }
 }

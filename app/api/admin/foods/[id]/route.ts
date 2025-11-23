@@ -24,7 +24,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const { id } = params;
+    const id = params?.id?.trim();
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID makanan tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.food.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Makanan tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
     const body = (await req.json()) as FoodUpdatePayload;
 
     const data: FoodUpdatePayload = {};
@@ -85,7 +100,22 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const { id } = params;
+    const id = params?.id?.trim();
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID makanan tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.food.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Makanan tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
     await prisma.food.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err) {

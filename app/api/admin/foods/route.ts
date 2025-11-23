@@ -9,11 +9,19 @@ export async function GET(req: NextRequest) {
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
-  const foods = await prisma.food.findMany({
-    include: { category: true },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(foods);
+  try {
+    const foods = await prisma.food.findMany({
+      include: { category: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(foods);
+  } catch (error) {
+    console.error("Gagal memuat makanan:", error);
+    return NextResponse.json(
+      { error: "Gagal memuat makanan" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
