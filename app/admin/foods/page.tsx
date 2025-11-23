@@ -1,7 +1,19 @@
-// app/admin/foods/page.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 import FoodForm, {
   CategoryOption,
@@ -12,6 +24,8 @@ import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
+const { Title, Text } = Typography;
+
 type Food = FoodFormData & { id: string; category?: CategoryOption | null };
 
 export default function AdminFoodsPage() {
@@ -19,9 +33,11 @@ export default function AdminFoodsPage() {
   const [foods, setFoods] = useState<Food[]>([]);
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>();
+  const [actionLoading, setActionLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
 
   const requireAdminToken = useCallback(() => {
     const token = readAdminToken();
@@ -43,12 +59,15 @@ export default function AdminFoodsPage() {
       const data = await res.json();
       setCategories(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal memuat kategori";
-      setError(message);
+      const messageText =
+        err instanceof Error ? err.message : "Gagal memuat kategori";
+      setError(messageText);
+      messageApi.error(messageText);
     }
-  }, [requireAdminToken]);
+  }, [messageApi, requireAdminToken]);
 
   const loadFoods = useCallback(async () => {
+    setTableLoading(true);
     try {
       const token = requireAdminToken();
       const res = await fetch("/api/admin/foods", {
@@ -60,10 +79,14 @@ export default function AdminFoodsPage() {
       const data = await res.json();
       setFoods(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal memuat makanan";
-      setError(message);
+      const messageText =
+        err instanceof Error ? err.message : "Gagal memuat makanan";
+      setError(messageText);
+      messageApi.error(messageText);
+    } finally {
+      setTableLoading(false);
     }
-  }, [requireAdminToken]);
+  }, [messageApi, requireAdminToken]);
 
   useEffect(() => {
     void Promise.all([loadCategories(), loadFoods()]);
@@ -74,249 +97,272 @@ export default function AdminFoodsPage() {
     return foods.filter((food) => food.categoryId === filterCategory);
   }, [filterCategory, foods]);
 
-  async function handleDelete(id: string) {
-    if (!confirm("Yakin hapus makanan ini?")) return;
-    setLoading(true);
-    try {
-      const token = requireAdminToken();
-      const res = await fetch(`/api/admin/foods/${id}`, {
-        method: "DELETE",
-        headers: {
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-      });
-      if (!res.ok) {
-        throw new Error("Gagal hapus makanan");
+  const handleDelete = useCallback(
+    async (id: string) => {
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch(`/api/admin/foods/${id}`, {
+          method: "DELETE",
+          headers: {
+            [ADMIN_TOKEN_HEADER]: token,
+          },
+        });
+        if (!res.ok) {
+          throw new Error("Gagal hapus makanan");
+        }
+        setEditingFood(null);
+        await loadFoods();
+        messageApi.success("Makanan berhasil dihapus");
+      } catch (err) {
+        const messageText =
+          err instanceof Error ? err.message : "Gagal hapus makanan";
+        messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
       }
-      setEditingFood(null);
-      await loadFoods();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal hapus makanan";
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [loadFoods, messageApi, requireAdminToken]
+  );
 
-  async function toggleAvailability(food: Food) {
-    setLoading(true);
-    try {
-      const token = requireAdminToken();
-      const res = await fetch(`/api/admin/foods/${food.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-        body: JSON.stringify({
-          isAvailable: !food.isAvailable,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error("Gagal update status");
+  const toggleAvailability = useCallback(
+    async (food: Food) => {
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch(`/api/admin/foods/${food.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            [ADMIN_TOKEN_HEADER]: token,
+          },
+          body: JSON.stringify({
+            isAvailable: !food.isAvailable,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error("Gagal memperbarui status");
+        }
+        await loadFoods();
+        messageApi.success("Status makanan diperbarui");
+      } catch (err) {
+        const messageText =
+          err instanceof Error ? err.message : "Gagal memperbarui status";
+        messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
       }
-      await loadFoods();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal update status";
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [loadFoods, messageApi, requireAdminToken]
+  );
 
-  function openCreateModal() {
+  const openCreateModal = useCallback(() => {
     setEditingFood(null);
     setIsModalOpen(true);
-  }
+  }, []);
 
-  function openEditModal(food: Food) {
+  const openEditModal = useCallback((food: Food) => {
     setEditingFood(food);
     setIsModalOpen(true);
-  }
+  }, []);
 
-  function closeModal() {
+  const closeModal = useCallback(() => {
     setEditingFood(null);
     setIsModalOpen(false);
-  }
+  }, []);
+
+  const confirmDelete = useCallback(
+    (food: Food) => {
+      Modal.confirm({
+        title: `Hapus ${food.name}?`,
+        content: "Tindakan ini tidak dapat dibatalkan.",
+        okText: "Hapus",
+        okButtonProps: { danger: true },
+        cancelText: "Batal",
+        onOk: () => handleDelete(food.id),
+      });
+    },
+    [handleDelete]
+  );
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((cat) => map.set(cat.id, cat.name));
+    return map;
+  }, [categories]);
+
+  const columns = useMemo<ColumnsType<Food>>(
+    () => [
+      {
+        title: "Nama",
+        dataIndex: "name",
+        render: (_, record) => (
+          <Space direction="vertical" size={0}>
+            <Text strong>{record.name}</Text>
+            {record.description && (
+              <Text type="secondary">{record.description}</Text>
+            )}
+          </Space>
+        ),
+      },
+      {
+        title: "Kategori",
+        dataIndex: "categoryId",
+        render: (_, record) =>
+          categoryMap.get(record.categoryId) ?? record.category?.name ?? "-",
+      },
+      {
+        title: "Rating",
+        dataIndex: "rating",
+        render: (value: number) => <Tag color="gold">{value.toFixed(1)}</Tag>,
+      },
+      {
+        title: "Stok",
+        dataIndex: "stock",
+        render: (value: number) => (
+          <Tag color={value === 0 ? "red" : value < 5 ? "orange" : "green"}>
+            Stok {value}
+          </Tag>
+        ),
+      },
+      {
+        title: "Harga",
+        dataIndex: "price",
+        align: "right",
+        render: (value: number) => <Text strong>{formatCurrency(value)}</Text>,
+      },
+      {
+        title: "Status",
+        dataIndex: "isAvailable",
+        render: (value: boolean) => (
+          <Tag color={value ? "green" : "default"}>
+            {value ? "Tersedia" : "Tidak tersedia"}
+          </Tag>
+        ),
+      },
+      {
+        title: "Aksi",
+        key: "actions",
+        render: (_, record) => (
+          <Space wrap>
+            <Button size="small" onClick={() => openEditModal(record)}>
+              Edit
+            </Button>
+            <Button
+              size="small"
+              onClick={() => toggleAvailability(record)}
+              loading={actionLoading}
+            >
+              {record.isAvailable ? "Nonaktifkan" : "Aktifkan"}
+            </Button>
+            <Button
+              size="small"
+              danger
+              onClick={() => confirmDelete(record)}
+              disabled={actionLoading}
+            >
+              Hapus
+            </Button>
+          </Space>
+        ),
+      },
+    ],
+    [actionLoading, categoryMap, confirmDelete, openEditModal, toggleAvailability]
+  );
 
   return (
     <AdminProtected>
-      <div className="space-y-8 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-emerald-600">Admin</p>
-            <h1 className="text-3xl font-bold text-slate-900">Kelola Makanan</h1>
-            <p className="text-sm text-slate-600">Tambah, ubah, dan atur ketersediaan menu.</p>
-          </div>
-          <div className="space-y-1 text-right text-sm text-slate-500">
-            <p>Total makanan: {foods.length}</p>
-            <p>Filter kategori untuk fokus pada menu tertentu.</p>
-          </div>
+      {contextHolder}
+      <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}>
+        <div>
+          <Text type="secondary">Admin</Text>
+          <Title level={3} style={{ margin: 0 }}>
+            Kelola Makanan
+          </Title>
+          <Text>Tambah, ubah, dan atur ketersediaan menu.</Text>
         </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={openCreateModal}
-            className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600"
-          >
+        <Space wrap>
+          <Card>
+            <Text type="secondary">Total Makanan</Text>
+            <Title level={4} style={{ margin: 0 }}>
+              {foods.length}
+            </Title>
+          </Card>
+          <Card>
+            <Text type="secondary">Kategori</Text>
+            <Title level={4} style={{ margin: 0 }}>
+              {categories.length}
+            </Title>
+          </Card>
+        </Space>
+
+        <Space
+          wrap
+          align="center"
+          style={{ width: "100%", justifyContent: "space-between" }}
+        >
+          <Select
+            allowClear
+            placeholder="Semua kategori"
+            style={{ minWidth: 220 }}
+            value={filterCategory}
+            onChange={(value) => setFilterCategory(value || undefined)}
+            options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+          />
+          <Button type="primary" onClick={openCreateModal}>
             Tambah Makanan
-          </button>
-        </div>
+          </Button>
+        </Space>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <Alert
+            type="error"
+            message={error}
+            closable
+            onClose={() => setError(null)}
+          />
+        )}
 
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Daftar Makanan</h2>
-              <p className="text-sm text-slate-500">Gunakan tombol tambah atau edit untuk membuka formulir.</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-slate-600">Filter kategori</label>
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-              >
-                <option value="">Semua</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <Card>
+          <Table
+            rowKey="id"
+            dataSource={filteredFoods}
+            columns={columns}
+            loading={tableLoading}
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
+      </Space>
+
+      <Modal
+        open={isModalOpen}
+        onCancel={closeModal}
+        footer={null}
+        destroyOnClose
+        centered
+        width={800}
+        title={
+          <div>
+            <Text type="secondary">
+              {editingFood ? "Edit" : "Tambah"} Makanan
+            </Text>
+            <Title level={4} style={{ margin: 0 }}>
+              {editingFood ? editingFood.name : "Form Makanan"}
+            </Title>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="border-b bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
-                  <th className="px-3 py-2">Nama</th>
-                  <th className="px-3 py-2">Kategori</th>
-                  <th className="px-3 py-2">Rating</th>
-                  <th className="px-3 py-2">Stok</th>
-                  <th className="px-3 py-2 text-right">Harga</th>
-                  <th className="px-3 py-2 text-center">Status</th>
-                  <th className="px-3 py-2">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFoods.map((food) => (
-                  <tr key={food.id} className="border-b last:border-0">
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{food.name}</span>
-                          {food.isFeatured && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 line-clamp-2">{food.description}</p>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-slate-700">
-                      {food.category?.name ??
-                        categories.find((c) => c.id === food.categoryId)?.name ??
-                        "-"}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700">⭐ {food.rating.toFixed(1)}</td>
-                    <td className="px-3 py-2 text-slate-700">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                          food.stock === 0
-                            ? "bg-red-100 text-red-700"
-                            : food.stock < 5
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        Stok {food.stock}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-900">
-                      {formatCurrency(food.price)}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        onClick={() => toggleAvailability(food)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                          food.isAvailable
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            : "bg-slate-200 text-slate-600 hover:bg-slate-300"
-                        }`}
-                        disabled={loading}
-                      >
-                        {food.isAvailable ? "Tersedia" : "Tidak tersedia"}
-                      </button>
-                    </td>
-                    <td className="px-3 py-2 space-x-2">
-                      <button
-                        className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-800"
-                        onClick={() => openEditModal(food)}
-                        disabled={loading}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
-                        onClick={() => void handleDelete(food.id)}
-                        disabled={loading}
-                      >
-                        Hapus
-                      </button>
-                      {!food.isAvailable && (
-                        <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                          Tidak tersedia
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filteredFoods.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
-                      Tidak ada makanan untuk kategori ini.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            </div>
-          </div>
-        </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-wide text-emerald-600">{editingFood ? "Edit" : "Tambah"} Makanan</p>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {editingFood ? editingFood.name : "Form Makanan"}
-                </h2>
-              </div>
-              <button
-                onClick={closeModal}
-                className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600 hover:bg-slate-200"
-              >
-                Tutup
-              </button>
-            </div>
-            <FoodForm
-              categories={categories}
-              initialData={editingFood ?? undefined}
-              onSuccess={async () => {
-                await loadFoods();
-                closeModal();
-              }}
-              onCancel={closeModal}
-            />
-          </div>
-        </div>
-      )}
+        }
+      >
+        <FoodForm
+          categories={categories}
+          initialData={editingFood ?? undefined}
+          onSuccess={async () => {
+            await loadFoods();
+            closeModal();
+          }}
+          onCancel={closeModal}
+        />
+      </Modal>
     </AdminProtected>
   );
 }
