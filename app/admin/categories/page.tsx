@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 
+import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 
@@ -18,11 +19,26 @@ export default function AdminCategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function loadCategories() {
-    const res = await fetch("/api/admin/categories");
-    const data = await res.json();
-    setCategories(data);
+    setError(null);
+    try {
+      const token = requireAdminToken();
+      const res = await fetch("/api/admin/categories", {
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Gagal memuat kategori");
+      }
+      const data = await res.json();
+      setCategories(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal memuat kategori";
+      setError(message);
+    }
   }
 
   useEffect(() => {
@@ -113,104 +129,108 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Kategori</h1>
+    <AdminProtected>
+      <div className="p-8 space-y-6">
+        <h1 className="text-2xl font-bold">Kategori</h1>
 
-      {/* Form tambah */}
-      <form
-        onSubmit={handleCreate}
-        className="bg-white rounded shadow p-4 flex gap-2 items-center"
-      >
-        <input
-          type="text"
-          placeholder="Nama kategori baru"
-          className="border px-3 py-2 rounded flex-1"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-slate-900 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        {/* Form tambah */}
+        <form
+          onSubmit={handleCreate}
+          className="bg-white rounded shadow p-4 flex gap-2 items-center"
         >
-          {loading ? "Menyimpan..." : "Tambah"}
-        </button>
-      </form>
+          <input
+            type="text"
+            placeholder="Nama kategori baru"
+            className="border px-3 py-2 rounded flex-1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-slate-900 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+          >
+            {loading ? "Menyimpan..." : "Tambah"}
+          </button>
+        </form>
 
-      {/* Tabel kategori */}
-      <div className="bg-white rounded shadow p-4">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2">Nama</th>
-              <th className="text-left py-2 w-40">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((cat) => (
-              <tr key={cat.id} className="border-b last:border-0">
-                <td className="py-2">
-                  {editingId === cat.id ? (
-                    <input
-                      className="border px-2 py-1 rounded w-full"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                    />
-                  ) : (
-                    cat.name
-                  )}
-                </td>
-                <td className="py-2 space-x-2">
-                  {editingId === cat.id ? (
-                    <>
-                      <button
-                        className="text-xs bg-emerald-600 text-white px-2 py-1 rounded"
-                        onClick={() => handleUpdate(cat.id)}
-                      >
-                        Simpan
-                      </button>
-                      <button
-                        className="text-xs bg-slate-300 px-2 py-1 rounded"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditingName("");
-                        }}
-                      >
-                        Batal
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="text-xs bg-slate-900 text-white px-2 py-1 rounded"
-                        onClick={() => {
-                          setEditingId(cat.id);
-                          setEditingName(cat.name);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="text-xs bg-red-600 text-white px-2 py-1 rounded"
-                        onClick={() => handleDelete(cat.id)}
-                      >
-                        Hapus
-                      </button>
-                    </>
-                  )}
-                </td>
+        {/* Tabel kategori */}
+        <div className="bg-white rounded shadow p-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2">Nama</th>
+                <th className="text-left py-2 w-40">Aksi</th>
               </tr>
-            ))}
-            {categories.length === 0 && (
-              <tr>
-                <td colSpan={2} className="py-4 text-center text-slate-500">
-                  Belum ada kategori
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {categories.map((cat) => (
+                <tr key={cat.id} className="border-b last:border-0">
+                  <td className="py-2">
+                    {editingId === cat.id ? (
+                      <input
+                        className="border px-2 py-1 rounded w-full"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                      />
+                    ) : (
+                      cat.name
+                    )}
+                  </td>
+                  <td className="py-2 space-x-2">
+                    {editingId === cat.id ? (
+                      <>
+                        <button
+                          className="text-xs bg-emerald-600 text-white px-2 py-1 rounded"
+                          onClick={() => handleUpdate(cat.id)}
+                        >
+                          Simpan
+                        </button>
+                        <button
+                          className="text-xs bg-slate-300 px-2 py-1 rounded"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingName("");
+                          }}
+                        >
+                          Batal
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="text-xs bg-slate-900 text-white px-2 py-1 rounded"
+                          onClick={() => {
+                            setEditingId(cat.id);
+                            setEditingName(cat.name);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="text-xs bg-red-600 text-white px-2 py-1 rounded"
+                          onClick={() => handleDelete(cat.id)}
+                        >
+                          Hapus
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {categories.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="py-4 text-center text-slate-500">
+                    Belum ada kategori
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </AdminProtected>
   );
 }
