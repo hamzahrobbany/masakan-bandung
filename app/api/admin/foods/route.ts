@@ -22,7 +22,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, price, description, imageUrl, categoryId } = body;
+    const {
+      name,
+      price,
+      description,
+      imageUrl,
+      categoryId,
+      stock,
+      rating,
+      isFeatured,
+      isAvailable,
+    } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json(
@@ -30,9 +40,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (!price || typeof price !== "number") {
+    if (price === undefined || typeof price !== "number") {
       return NextResponse.json(
         { error: "Harga wajib diisi" },
+        { status: 400 }
+      );
+    }
+    if (price < 0) {
+      return NextResponse.json(
+        { error: "Harga tidak boleh negatif" },
         { status: 400 }
       );
     }
@@ -43,6 +59,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (stock !== undefined) {
+      if (typeof stock !== "number") {
+        return NextResponse.json(
+          { error: "Stok harus berupa angka" },
+          { status: 400 }
+        );
+      }
+      if (stock < 0) {
+        return NextResponse.json(
+          { error: "Stok tidak boleh negatif" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (rating !== undefined) {
+      if (typeof rating !== "number") {
+        return NextResponse.json(
+          { error: "Rating harus berupa angka" },
+          { status: 400 }
+        );
+      }
+      if (rating < 0 || rating > 5) {
+        return NextResponse.json(
+          { error: "Rating harus di antara 0 hingga 5" },
+          { status: 400 }
+        );
+      }
+    }
+
     const food = await prisma.food.create({
       data: {
         name,
@@ -50,6 +96,10 @@ export async function POST(req: NextRequest) {
         description: description ?? null,
         imageUrl: imageUrl || "https://picsum.photos/400",
         categoryId,
+        stock: stock ?? 0,
+        rating: rating ?? 5,
+        isFeatured: Boolean(isFeatured),
+        isAvailable: isAvailable ?? true,
       },
     });
 

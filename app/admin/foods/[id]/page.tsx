@@ -1,69 +1,42 @@
-"use client";
+import FoodForm, { FoodFormData } from "@/app/admin/foods/components/FoodForm";
+import AdminProtected from "@/components/AdminProtected";
+import prisma from "@/lib/prisma";
+import { notFound } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { Form, Input, InputNumber, Select, Button, Switch, message } from "antd";
-import { useRouter, useParams } from "next/navigation";
+export default async function EditFoodPage({ params }: { params: { id: string } }) {
+  const [categories, food] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.food.findUnique({ where: { id: params.id } }),
+  ]);
 
-export default function EditFoodPage() {
-  const params = useParams();
-  const id = params.id;
-  const router = useRouter();
+  if (!food) {
+    notFound();
+  }
 
-  const [categories, setCategories] = useState([]);
-  const [form] = Form.useForm();
-
-  useEffect(() => {
-    fetch("/api/categories").then((r) => r.json()).then(setCategories);
-
-    fetch(`/api/foods/${id}`)
-      .then((r) => r.json())
-      .then((data) => form.setFieldsValue(data));
-  }, [id, form]);
-
-  const onFinish = async (values: any) => {
-    await fetch(`/api/foods/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(values),
-    });
-
-    message.success("Food diperbarui");
-    router.push("/admin/foods");
+  const initialData: FoodFormData = {
+    id: food.id,
+    name: food.name,
+    price: food.price,
+    description: food.description,
+    imageUrl: food.imageUrl,
+    categoryId: food.categoryId,
+    stock: food.stock,
+    rating: food.rating,
+    isAvailable: food.isAvailable,
+    isFeatured: food.isFeatured,
   };
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">Edit Food</h1>
+    <AdminProtected>
+      <div className="space-y-6 p-8">
+        <div>
+          <p className="text-sm uppercase tracking-wide text-emerald-600">Admin</p>
+          <h1 className="text-3xl font-bold text-slate-900">Edit Makanan</h1>
+          <p className="text-sm text-slate-600">Perbarui data makanan berikut kemudian simpan.</p>
+        </div>
 
-      <Form form={form} layout="vertical" onFinish={onFinish} style={{ maxWidth: 500 }}>
-        <Form.Item name="name" label="Nama" rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-
-        <Form.Item name="price" label="Harga" rules={[{ required: true }]}>
-          <InputNumber min={0} className="w-full" />
-        </Form.Item>
-
-        <Form.Item name="categoryId" label="Kategori" rules={[{ required: true }]}>
-          <Select
-            options={categories.map((c: any) => ({
-              value: c.id,
-              label: c.name,
-            }))}
-          />
-        </Form.Item>
-
-        <Form.Item name="imageUrl" label="URL Gambar (sementara)">
-          <Input />
-        </Form.Item>
-
-        <Form.Item name="isAvailable" label="Status" valuePropName="checked">
-          <Switch checkedChildren="Tersedia" unCheckedChildren="Habis" />
-        </Form.Item>
-
-        <Button type="primary" htmlType="submit">
-          Update
-        </Button>
-      </Form>
-    </div>
+        <FoodForm categories={categories} initialData={initialData} />
+      </div>
+    </AdminProtected>
   );
 }

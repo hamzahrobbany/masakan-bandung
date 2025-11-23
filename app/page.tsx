@@ -7,7 +7,11 @@ export const revalidate = 0;
 export default async function HomePage() {
   const [categories, foods] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
-    prisma.food.findMany({ include: { category: true }, orderBy: { createdAt: 'desc' } })
+    prisma.food.findMany({
+      where: { isAvailable: true },
+      include: { category: true },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }]
+    })
   ]);
 
   return (
