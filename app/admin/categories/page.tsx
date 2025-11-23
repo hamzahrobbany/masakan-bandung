@@ -1,7 +1,19 @@
-// app/admin/categories/page.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  Modal,
+  Space,
+  Table,
+  Typography,
+  message,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
@@ -13,15 +25,28 @@ type Category = {
   createdAt: string;
 };
 
+const { Title, Text } = Typography;
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
+  const [form] = Form.useForm();
+
+  const requireAdminToken = useCallback(() => {
+    const token = readAdminToken();
+    if (!token) {
+      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+    }
+    return token;
+  }, []);
 
   const loadCategories = useCallback(async () => {
+    setTableLoading(true);
     setError(null);
     try {
       const token = requireAdminToken();
@@ -36,201 +61,254 @@ export default function AdminCategoriesPage() {
       const data = await res.json();
       setCategories(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal memuat kategori";
-      setError(message);
+      const messageText =
+        err instanceof Error ? err.message : "Gagal memuat kategori";
+      setError(messageText);
+      messageApi.error(messageText);
+    } finally {
+      setTableLoading(false);
     }
-  }, []);
+  }, [messageApi, requireAdminToken]);
 
   useEffect(() => {
     void loadCategories();
   }, [loadCategories]);
 
-  function requireAdminToken() {
-    const token = readAdminToken();
-    if (!token) {
-      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-    }
-    return token;
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-
-    setLoading(true);
-    try {
-      const token = requireAdminToken();
-      const res = await fetch("/api/admin/categories", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) {
-        throw new Error("Gagal membuat kategori");
+  const handleCreate = useCallback(
+    async (values: { name: string }) => {
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch("/api/admin/categories", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            [ADMIN_TOKEN_HEADER]: token,
+          },
+          body: JSON.stringify({ name: values.name }),
+        });
+        if (!res.ok) {
+          throw new Error("Gagal membuat kategori");
+        }
+        form.resetFields();
+        await loadCategories();
+        messageApi.success("Kategori berhasil ditambahkan");
+      } catch (err) {
+        const messageText =
+          err instanceof Error ? err.message : "Gagal membuat kategori";
+        messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
       }
-      setName("");
-      await loadCategories();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal membuat kategori";
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [form, loadCategories, messageApi, requireAdminToken]
+  );
 
-  async function handleUpdate(id: string) {
-    if (!editingName.trim()) return;
+  const handleUpdate = useCallback(
+    async (id: string) => {
+      if (!editingName.trim()) return;
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch(`/api/admin/categories/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            [ADMIN_TOKEN_HEADER]: token,
+          },
+          body: JSON.stringify({ name: editingName }),
+        });
 
-    try {
-      const token = requireAdminToken();
-      const res = await fetch(`/api/admin/categories/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-        body: JSON.stringify({ name: editingName }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Gagal update kategori");
+        if (!res.ok) {
+          throw new Error("Gagal memperbarui kategori");
+        }
+        setEditingId(null);
+        setEditingName("");
+        await loadCategories();
+        messageApi.success("Kategori diperbarui");
+      } catch (err) {
+        const messageText =
+          err instanceof Error ? err.message : "Gagal memperbarui kategori";
+        messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
       }
-      setEditingId(null);
-      setEditingName("");
-      await loadCategories();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal update kategori";
-      alert(message);
-    }
-  }
+    },
+    [editingName, loadCategories, messageApi, requireAdminToken]
+  );
 
-  async function handleDelete(id: string) {
-    if (!confirm("Yakin hapus kategori?")) return;
-
-    try {
-      const token = requireAdminToken();
-      const res = await fetch(`/api/admin/categories/${id}`, {
-        method: "DELETE",
-        headers: {
-          [ADMIN_TOKEN_HEADER]: token,
+  const handleDelete = useCallback(
+    (id: string, name: string) => {
+      Modal.confirm({
+        title: `Hapus ${name}?`,
+        content: "Tindakan ini tidak dapat dibatalkan.",
+        okText: "Hapus",
+        okButtonProps: { danger: true },
+        cancelText: "Batal",
+        onOk: async () => {
+          setActionLoading(true);
+          try {
+            const token = requireAdminToken();
+            const res = await fetch(`/api/admin/categories/${id}`, {
+              method: "DELETE",
+              headers: {
+                [ADMIN_TOKEN_HEADER]: token,
+              },
+            });
+            if (!res.ok) {
+              throw new Error("Gagal menghapus kategori");
+            }
+            await loadCategories();
+            messageApi.success("Kategori berhasil dihapus");
+          } catch (err) {
+            const messageText =
+              err instanceof Error ? err.message : "Gagal menghapus kategori";
+            messageApi.error(messageText);
+          } finally {
+            setActionLoading(false);
+          }
         },
       });
-      if (!res.ok) {
-        throw new Error("Gagal hapus kategori");
-      }
-      await loadCategories();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal hapus kategori";
-      alert(message);
-    }
-  }
+    },
+    [loadCategories, messageApi, requireAdminToken]
+  );
+
+  const columns = useMemo<ColumnsType<Category>>(
+    () => [
+      {
+        title: "Nama",
+        dataIndex: "name",
+        render: (_, record) =>
+          editingId === record.id ? (
+            <Input
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              maxLength={120}
+            />
+          ) : (
+            <Text>{record.name}</Text>
+          ),
+      },
+      {
+        title: "Dibuat",
+        dataIndex: "createdAt",
+        render: (value: string) =>
+          new Date(value).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+      },
+      {
+        title: "Aksi",
+        key: "actions",
+        width: 200,
+        render: (_, record) =>
+          editingId === record.id ? (
+            <Space>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => handleUpdate(record.id)}
+                loading={actionLoading}
+              >
+                Simpan
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  setEditingId(null);
+                  setEditingName("");
+                }}
+                disabled={actionLoading}
+              >
+                Batal
+              </Button>
+            </Space>
+          ) : (
+            <Space>
+              <Button
+                size="small"
+                onClick={() => {
+                  setEditingId(record.id);
+                  setEditingName(record.name);
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                size="small"
+                danger
+                onClick={() => handleDelete(record.id, record.name)}
+              >
+                Hapus
+              </Button>
+            </Space>
+          ),
+      },
+    ],
+    [actionLoading, editingId, editingName, handleDelete, handleUpdate]
+  );
 
   return (
     <AdminProtected>
-      <div className="p-8 space-y-6">
-        <h1 className="text-2xl font-bold">Kategori</h1>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        {/* Form tambah */}
-        <form
-          onSubmit={handleCreate}
-          className="bg-white rounded shadow p-4 flex gap-2 items-center"
-        >
-          <input
-            type="text"
-            placeholder="Nama kategori baru"
-            className="border px-3 py-2 rounded flex-1"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-slate-900 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
-          >
-            {loading ? "Menyimpan..." : "Tambah"}
-          </button>
-        </form>
-
-        {/* Tabel kategori */}
-        <div className="bg-white rounded shadow p-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Nama</th>
-                <th className="text-left py-2 w-40">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((cat) => (
-                <tr key={cat.id} className="border-b last:border-0">
-                  <td className="py-2">
-                    {editingId === cat.id ? (
-                      <input
-                        className="border px-2 py-1 rounded w-full"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                      />
-                    ) : (
-                      cat.name
-                    )}
-                  </td>
-                  <td className="py-2 space-x-2">
-                    {editingId === cat.id ? (
-                      <>
-                        <button
-                          className="text-xs bg-emerald-600 text-white px-2 py-1 rounded"
-                          onClick={() => handleUpdate(cat.id)}
-                        >
-                          Simpan
-                        </button>
-                        <button
-                          className="text-xs bg-slate-300 px-2 py-1 rounded"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditingName("");
-                          }}
-                        >
-                          Batal
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="text-xs bg-slate-900 text-white px-2 py-1 rounded"
-                          onClick={() => {
-                            setEditingId(cat.id);
-                            setEditingName(cat.name);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="text-xs bg-red-600 text-white px-2 py-1 rounded"
-                          onClick={() => handleDelete(cat.id)}
-                        >
-                          Hapus
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {categories.length === 0 && (
-                <tr>
-                  <td colSpan={2} className="py-4 text-center text-slate-500">
-                    Belum ada kategori
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {contextHolder}
+      <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}>
+        <div>
+          <Text type="secondary">Admin</Text>
+          <Title level={3} style={{ margin: 0 }}>
+            Kelola Kategori
+          </Title>
+          <Text>Tambah dan kelola kategori makanan.</Text>
         </div>
-      </div>
+
+        {error && (
+          <Alert
+            type="error"
+            message={error}
+            closable
+            onClose={() => setError(null)}
+          />
+        )}
+
+        <Card>
+          <Form
+            layout="inline"
+            form={form}
+            onFinish={handleCreate}
+            style={{ gap: 16 }}
+          >
+            <Form.Item
+              name="name"
+              rules={[
+                { required: true, message: "Nama kategori wajib diisi" },
+                { max: 120, message: "Nama maksimal 120 karakter" },
+              ]}
+            >
+              <Input placeholder="Nama kategori baru" />
+            </Form.Item>
+            <Form.Item>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={actionLoading}
+              >
+                Tambah
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+
+        <Card>
+          <Table
+            rowKey="id"
+            dataSource={categories}
+            columns={columns}
+            loading={tableLoading}
+            pagination={false}
+          />
+        </Card>
+      </Space>
     </AdminProtected>
   );
 }
