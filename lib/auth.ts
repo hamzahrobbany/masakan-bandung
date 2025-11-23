@@ -174,7 +174,7 @@ export function attachSessionCookie(
 // =======================================================
 
 function shouldValidateCsrf(method: string) {
-  return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+  return method.toUpperCase() !== "OPTIONS";
 }
 
 export function protectAdminRoute(request: NextRequest) {

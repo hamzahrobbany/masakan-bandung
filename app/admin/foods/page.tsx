@@ -1,7 +1,7 @@
 // app/admin/foods/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import FoodForm, {
   CategoryOption,
@@ -23,9 +23,22 @@ export default function AdminFoodsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadCategories() {
+  const requireAdminToken = useCallback(() => {
+    const token = readAdminToken();
+    if (!token) {
+      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+    }
+    return token;
+  }, []);
+
+  const loadCategories = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/categories");
+      const token = requireAdminToken();
+      const res = await fetch("/api/admin/categories", {
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
       if (!res.ok) throw new Error("Gagal memuat kategori");
       const data = await res.json();
       setCategories(data);
@@ -33,11 +46,16 @@ export default function AdminFoodsPage() {
       const message = err instanceof Error ? err.message : "Gagal memuat kategori";
       setError(message);
     }
-  }
+  }, [requireAdminToken]);
 
-  async function loadFoods() {
+  const loadFoods = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/foods");
+      const token = requireAdminToken();
+      const res = await fetch("/api/admin/foods", {
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
       if (!res.ok) throw new Error("Gagal memuat makanan");
       const data = await res.json();
       setFoods(data);
@@ -45,24 +63,16 @@ export default function AdminFoodsPage() {
       const message = err instanceof Error ? err.message : "Gagal memuat makanan";
       setError(message);
     }
-  }
+  }, [requireAdminToken]);
 
   useEffect(() => {
     void Promise.all([loadCategories(), loadFoods()]);
-  }, []);
+  }, [loadCategories, loadFoods]);
 
   const filteredFoods = useMemo(() => {
     if (!filterCategory) return foods;
     return foods.filter((food) => food.categoryId === filterCategory);
   }, [filterCategory, foods]);
-
-  function requireAdminToken() {
-    const token = readAdminToken();
-    if (!token) {
-      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-    }
-    return token;
-  }
 
   async function handleDelete(id: string) {
     if (!confirm("Yakin hapus makanan ini?")) return;
