@@ -1,7 +1,7 @@
 // app/admin/categories/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
@@ -21,7 +21,7 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadCategories() {
+  const loadCategories = useCallback(async () => {
     setError(null);
     try {
       const token = requireAdminToken();
@@ -39,11 +39,11 @@ export default function AdminCategoriesPage() {
       const message = err instanceof Error ? err.message : "Gagal memuat kategori";
       setError(message);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    void loadCategories();
+  }, [loadCategories]);
 
   function requireAdminToken() {
     const token = readAdminToken();
