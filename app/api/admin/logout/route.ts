@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { protectAdminRoute } from "@/lib/protect-admin-route";
 import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/security";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   const res = NextResponse.json({ success: true });
   res.cookies.delete(ADMIN_SESSION_COOKIE);
   res.cookies.delete(ADMIN_CSRF_COOKIE);
