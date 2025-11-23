@@ -1,3 +1,8 @@
+// =====================================================
+// PRISMA SCHEMA — APLIKASI MASAKAN BANDUNG
+// Tanpa soft delete, optimal untuk UMKM
+// =====================================================
+
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
@@ -8,7 +13,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =========================
 // ENUMS
+// =========================
+
 enum OrderStatus {
   PENDING
   PROCESSED
@@ -16,40 +24,65 @@ enum OrderStatus {
   CANCELLED
 }
 
+// =========================
 // CATEGORY
+// =========================
+
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
+  slug      String   @unique
+
   foods     Food[]
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([name])
+  @@index([slug])
 }
 
+// =========================
 // FOOD
+// =========================
+
 model Food {
   id          String     @id @default(uuid())
   name        String
   price       Int
   description String?
   imageUrl    String
+
+  // Relasi kategori
   categoryId  String
   category    Category   @relation(fields: [categoryId], references: [id])
-  isAvailable Boolean     @default(true)
+
+  // Status & fitur tambahan
+  isAvailable Boolean    @default(true)
+  isFeatured  Boolean    @default(false)
+  stock       Int        @default(0)
+  rating      Float      @default(5.0)
 
   orderItems  OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([categoryId])
+  @@index([isAvailable])
+  @@index([isFeatured])
 }
 
+// =========================
 // ORDER
+// =========================
+
 model Order {
   id            String      @id @default(uuid())
   customerName  String?
   customerPhone String?
   note          String?
+
   status        OrderStatus @default(PENDING)
   total         Int
 
@@ -60,15 +93,20 @@ model Order {
 
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
-// ORDER ITEMS
+// =========================
+// ORDER ITEM
+// =========================
+
 model OrderItem {
   id        String   @id @default(uuid())
 
   orderId   String
   foodId    String?
 
+  // Snapshot dari Food
   foodName  String
   foodPrice Int
   quantity  Int
@@ -81,12 +119,16 @@ model OrderItem {
   @@index([orderId])
 }
 
+// =========================
 // ADMIN
+// =========================
+
 model Admin {
   id           String   @id @default(uuid())
   name         String
   email        String   @unique
   passwordHash String
+
   createdAt    DateTime @default(now())
 
   @@index([email])
