@@ -48,9 +48,9 @@ export default function AdminSidebar() {
         mode="inline"
         selectedKeys={[pathname]}
         items={menuItems}
-        onClick={(info) => {
+        onClick={async (info) => {
           if (info.key === "/admin/logout") {
-            fetch("/api/admin/logout", { method: "POST" });
+            await fetch("/api/admin/logout", { method: "POST" });
             router.push("/admin/login");
             return;
           }
