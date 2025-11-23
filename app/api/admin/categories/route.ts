@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(category, { status: 201 });
-  } catch (err) {
+  } catch (error) {
+    console.error("Membuat kategori gagal:", error);
     return NextResponse.json({ error: "Gagal membuat kategori" }, { status: 500 });
   }
 }

@@ -51,7 +51,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
 
     return NextResponse.json(updated);
-  } catch (err) {
+  } catch (error) {
+    console.error("Update kategori gagal:", error);
     return NextResponse.json({ error: "Gagal memperbarui kategori" }, { status: 500 });
   }
 }

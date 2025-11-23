@@ -1,8 +1,3 @@
-// =====================================================
-// PRISMA SCHEMA — APLIKASI MASAKAN BANDUNG
-// Tanpa soft delete, optimal untuk UMKM
-// =====================================================
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
@@ -13,123 +8,82 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =========================
-// ENUMS
-// =========================
-
-enum OrderStatus {
-  PENDING
-  PROCESSED
-  DONE
-  CANCELLED
-}
-
-// =========================
-// CATEGORY
-// =========================
-
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
-  slug      String   @unique
-
-  foods     Food[]
-
   createdAt DateTime @default(now())
+  slug      String   @unique
   updatedAt DateTime @updatedAt
+  foods     Food[]
 
   @@index([name])
   @@index([slug])
 }
 
-// =========================
-// FOOD
-// =========================
-
 model Food {
-  id          String     @id @default(uuid())
+  id          String      @id @default(uuid())
   name        String
   price       Int
   description String?
   imageUrl    String
-
-  // Relasi kategori
   categoryId  String
-  category    Category   @relation(fields: [categoryId], references: [id])
-
-  // Status & fitur tambahan
-  isAvailable Boolean    @default(true)
-  isFeatured  Boolean    @default(false)
-  stock       Int        @default(0)
-  rating      Float      @default(5.0)
-
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isAvailable Boolean     @default(true)
+  isFeatured  Boolean     @default(false)
+  rating      Float       @default(5.0)
+  stock       Int         @default(0)
+  category    Category    @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
 
   @@index([categoryId])
   @@index([isAvailable])
   @@index([isFeatured])
 }
 
-// =========================
-// ORDER
-// =========================
-
 model Order {
   id            String      @id @default(uuid())
   customerName  String?
   customerPhone String?
   note          String?
-
   status        OrderStatus @default(PENDING)
   total         Int
-
-  items         OrderItem[]
-
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  items         OrderItem[]
 
   @@index([status])
   @@index([createdAt])
   @@index([status, createdAt])
 }
 
-// =========================
-// ORDER ITEM
-// =========================
-
 model OrderItem {
   id        String   @id @default(uuid())
-
   orderId   String
   foodId    String?
-
-  // Snapshot dari Food
   foodName  String
   foodPrice Int
   quantity  Int
-
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  food      Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
-
   createdAt DateTime @default(now())
+  food      Food?    @relation(fields: [foodId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }
-
-// =========================
-// ADMIN
-// =========================
 
 model Admin {
   id           String   @id @default(uuid())
   name         String
   email        String   @unique
   passwordHash String
-
   createdAt    DateTime @default(now())
 
   @@index([email])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSED
+  DONE
+  CANCELLED
 }

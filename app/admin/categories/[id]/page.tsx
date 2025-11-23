@@ -1,24 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Form, Input, Button, message } from "antd";
+import type { FormProps } from "antd";
 import { useRouter, useParams } from "next/navigation";
 
+type CategoryFormValues = {
+  name: string;
+};
+
 export default function EditCategoryPage() {
-  const params = useParams();
-  const id = params.id;
-  const [form] = Form.useForm();
+  const { id } = useParams<{ id: string }>();
+  const [form] = Form.useForm<CategoryFormValues>();
   const router = useRouter();
 
   useEffect(() => {
-    fetch(`/api/categories/${id}`)
-      .then((res) => res.json())
-      .then((data) => form.setFieldsValue(data));
-  }, [id, form]);
+    async function loadCategory() {
+      const response = await fetch(`/api/categories/${id}`);
+      if (!response.ok) {
+        message.error("Gagal memuat kategori");
+        return;
+      }
+      const data = (await response.json()) as CategoryFormValues;
+      form.setFieldsValue(data);
+    }
 
-  const onFinish = async (values: any) => {
+    void loadCategory();
+  }, [form, id]);
+
+  const onFinish: FormProps<CategoryFormValues>["onFinish"] = async (values) => {
     await fetch(`/api/categories/${id}`, {
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(values),
     });
 

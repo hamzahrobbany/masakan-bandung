@@ -1,14 +1,22 @@
 "use client";
 
 import { Form, Input, Button, message } from "antd";
+import type { FormProps } from "antd";
 import { useRouter } from "next/navigation";
+
+type CategoryFormValues = {
+  name: string;
+};
 
 export default function CreateCategoryPage() {
   const router = useRouter();
 
-  const onFinish = async (values: any) => {
+  const onFinish: FormProps<CategoryFormValues>["onFinish"] = async (values) => {
     await fetch("/api/categories", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(values),
     });
 

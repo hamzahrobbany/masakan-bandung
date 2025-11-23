@@ -1,36 +1,89 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Descriptions, Tag, Table, Button, Select, message } from "antd";
-import { useParams, useRouter } from "next/navigation";
+import type { ColumnsType } from "antd/es/table";
+import { useParams } from "next/navigation";
+
+type OrderStatus = "PENDING" | "PROCESSED" | "DONE" | "CANCELLED";
+
+type OrderItem = {
+  id: string;
+  foodName: string;
+  foodPrice: number;
+  quantity: number;
+};
+
+type Order = {
+  id: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  note?: string | null;
+  status: OrderStatus;
+  total: number;
+  items: OrderItem[];
+};
 
 export default function OrderDetailPage() {
-  const { id } = useParams();
-  const router = useRouter();
+  const { id } = useParams<{ id: string }>();
 
-  const [order, setOrder] = useState<any>(null);
-  const [status, setStatus] = useState("PENDING");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [status, setStatus] = useState<OrderStatus>("PENDING");
 
-  const fetchOrder = async () => {
+  const requestOrder = useCallback(async (): Promise<Order | null> => {
     const res = await fetch(`/api/orders/${id}`);
-    const json = await res.json();
-    setOrder(json);
-    setStatus(json.status);
-  };
-
-  useEffect(() => {
-    fetchOrder();
+    if (!res.ok) {
+      message.error("Gagal memuat detail pesanan");
+      return null;
+    }
+    return (await res.json()) as Order;
   }, [id]);
 
-  const updateStatus = async () => {
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      const data = await requestOrder();
+      if (isMounted && data) {
+        setOrder(data);
+        setStatus(data.status);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [requestOrder]);
+
+  const updateStatus = useCallback(async () => {
     await fetch(`/api/orders/${id}`, {
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ status }),
     });
 
     message.success("Status diperbarui");
-    fetchOrder();
-  };
+    const latest = await requestOrder();
+    if (latest) {
+      setOrder(latest);
+      setStatus(latest.status);
+    }
+  }, [id, requestOrder, status]);
+
+  const columns: ColumnsType<OrderItem> = [
+    { title: "Menu", dataIndex: "foodName" },
+    {
+      title: "Harga",
+      dataIndex: "foodPrice",
+      render: (value: number) => `Rp ${value.toLocaleString()}`,
+    },
+    { title: "Qty", dataIndex: "quantity" },
+    {
+      title: "Total",
+      render: (_, item) => `Rp ${(item.foodPrice * item.quantity).toLocaleString()}`,
+    },
+  ];
 
   return (
     <>
@@ -55,10 +108,10 @@ export default function OrderDetailPage() {
               <Tag>{order.status}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Ubah Status">
-              <Select
+              <Select<OrderStatus>
                 value={status}
                 style={{ width: 200 }}
-                onChange={setStatus}
+                onChange={(value) => setStatus(value)}
                 options={[
                   { value: "PENDING", label: "PENDING" },
                   { value: "PROCESSED", label: "PROCESSED" },
@@ -73,24 +126,7 @@ export default function OrderDetailPage() {
           </Descriptions>
 
           <h2 className="text-lg font-bold mb-2">Items</h2>
-          <Table
-            dataSource={order.items}
-            rowKey="id"
-            columns={[
-              { title: "Menu", dataIndex: "foodName" },
-              {
-                title: "Harga",
-                dataIndex: "foodPrice",
-                render: (v: number) => `Rp ${v.toLocaleString()}`,
-              },
-              { title: "Qty", dataIndex: "quantity" },
-              {
-                title: "Total",
-                render: (r: any) =>
-                  `Rp ${(r.foodPrice * r.quantity).toLocaleString()}`,
-              },
-            ]}
-          />
+          <Table<OrderItem> dataSource={order.items} rowKey="id" columns={columns} pagination={false} />
         </>
       )}
     </>
