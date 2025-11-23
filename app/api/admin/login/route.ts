@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { ADMIN_SESSION_COOKIE } from "@/lib/security";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+import prisma from "@/lib/prisma";
+import { attachSessionCookie, verifyPassword } from "@/lib/auth";
+
+export const runtime = "nodejs";
+
+export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const isValid = await bcrypt.compare(password, admin.passwordHash);
+    const isValid = await verifyPassword(password, admin.passwordHash);
     if (!isValid) {
       return NextResponse.json(
         { error: "Password salah" },
@@ -27,27 +28,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const token = jwt.sign(
-      {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-      },
-      process.env.JWT_SECRET!,
-      { expiresIn: "7d" }
-    );
-
     // Redirect ke dashboard setelah login
     const redirectURL = new URL("/admin", req.url);
 
     const res = NextResponse.redirect(redirectURL);
-
-    res.cookies.set(ADMIN_SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
+    attachSessionCookie(res, {
+      id: admin.id,
+      email: admin.email,
+      name: admin.name,
     });
 
     return res;

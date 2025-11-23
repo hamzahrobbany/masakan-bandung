@@ -3,6 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
+import { readAdminToken } from "@/lib/admin-token";
+import { ADMIN_TOKEN_HEADER } from "@/lib/security";
+
 export type CategoryOption = { id: string; name: string };
 
 export type FoodFormData = {
@@ -84,9 +87,20 @@ export default function FoodForm({
     setError(null);
     setSuccess(null);
     try {
+      const adminToken = readAdminToken();
+      if (!adminToken) {
+        throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+      }
+
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          [ADMIN_TOKEN_HEADER]: adminToken,
+        },
+        body: formData,
+      });
       if (!res.ok) {
         const message = await res
           .json()
@@ -155,6 +169,11 @@ export default function FoodForm({
 
     setSubmitting(true);
     try {
+      const adminToken = readAdminToken();
+      if (!adminToken) {
+        throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+      }
+
       const url = initialData?.id
         ? `/api/admin/foods/${initialData.id}`
         : "/api/admin/foods";
@@ -162,7 +181,10 @@ export default function FoodForm({
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: adminToken,
+        },
         body: JSON.stringify(payload),
       });
 

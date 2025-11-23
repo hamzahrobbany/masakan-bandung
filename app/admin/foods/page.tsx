@@ -8,6 +8,8 @@ import FoodForm, {
   FoodFormData,
 } from "@/app/admin/foods/components/FoodForm";
 import AdminProtected from "@/components/AdminProtected";
+import { readAdminToken } from "@/lib/admin-token";
+import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
 type Food = FoodFormData & { id: string; category?: CategoryOption | null };
@@ -53,33 +55,62 @@ export default function AdminFoodsPage() {
     return foods.filter((food) => food.categoryId === filterCategory);
   }, [filterCategory, foods]);
 
+  function requireAdminToken() {
+    const token = readAdminToken();
+    if (!token) {
+      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+    }
+    return token;
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("Yakin hapus makanan ini?")) return;
     setLoading(true);
-    const res = await fetch(`/api/admin/foods/${id}`, { method: "DELETE" });
-    setLoading(false);
-    if (!res.ok) {
-      alert("Gagal hapus makanan");
-      return;
+    try {
+      const token = requireAdminToken();
+      const res = await fetch(`/api/admin/foods/${id}`, {
+        method: "DELETE",
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Gagal hapus makanan");
+      }
+      setEditingFood(null);
+      await loadFoods();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal hapus makanan";
+      alert(message);
+    } finally {
+      setLoading(false);
     }
-    setEditingFood(null);
-    await loadFoods();
   }
 
   async function toggleAvailability(food: Food) {
     setLoading(true);
-    const res = await fetch(`/api/admin/foods/${food.id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        isAvailable: !food.isAvailable,
-      }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      alert("Gagal update status");
-      return;
+    try {
+      const token = requireAdminToken();
+      const res = await fetch(`/api/admin/foods/${food.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+        body: JSON.stringify({
+          isAvailable: !food.isAvailable,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("Gagal update status");
+      }
+      await loadFoods();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal update status";
+      alert(message);
+    } finally {
+      setLoading(false);
     }
-    await loadFoods();
   }
 
   return (

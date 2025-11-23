@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { ADMIN_SESSION_COOKIE } from "@/lib/security";
+
+import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/security";
 
 export async function POST() {
   const res = NextResponse.json({ success: true });
   res.cookies.delete(ADMIN_SESSION_COOKIE);
+  res.cookies.delete(ADMIN_CSRF_COOKIE);
   return res;
 }

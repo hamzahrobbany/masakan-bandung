@@ -3,6 +3,9 @@
 
 import { useEffect, useState } from "react";
 
+import { readAdminToken } from "@/lib/admin-token";
+import { ADMIN_TOKEN_HEADER } from "@/lib/security";
+
 type Category = {
   id: string;
   name: string;
@@ -26,52 +29,87 @@ export default function AdminCategoriesPage() {
     loadCategories();
   }, []);
 
+  function requireAdminToken() {
+    const token = readAdminToken();
+    if (!token) {
+      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
+    }
+    return token;
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
     setLoading(true);
-    const res = await fetch("/api/admin/categories", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      alert("Gagal membuat kategori");
-      return;
+    try {
+      const token = requireAdminToken();
+      const res = await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        throw new Error("Gagal membuat kategori");
+      }
+      setName("");
+      await loadCategories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal membuat kategori";
+      alert(message);
+    } finally {
+      setLoading(false);
     }
-    setName("");
-    await loadCategories();
   }
 
   async function handleUpdate(id: string) {
     if (!editingName.trim()) return;
 
-    const res = await fetch(`/api/admin/categories/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ name: editingName }),
-    });
+    try {
+      const token = requireAdminToken();
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+        body: JSON.stringify({ name: editingName }),
+      });
 
-    if (!res.ok) {
-      alert("Gagal update kategori");
-      return;
+      if (!res.ok) {
+        throw new Error("Gagal update kategori");
+      }
+      setEditingId(null);
+      setEditingName("");
+      await loadCategories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal update kategori";
+      alert(message);
     }
-    setEditingId(null);
-    setEditingName("");
-    await loadCategories();
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Yakin hapus kategori?")) return;
 
-    const res = await fetch(`/api/admin/categories/${id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      alert("Gagal hapus kategori");
-      return;
+    try {
+      const token = requireAdminToken();
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: "DELETE",
+        headers: {
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Gagal hapus kategori");
+      }
+      await loadCategories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal hapus kategori";
+      alert(message);
     }
-    await loadCategories();
   }
 
   return (

@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-import { validateAdminAuth } from "@/lib/admin-auth";
+import { protectAdminRoute as enforceAuth } from "@/lib/auth";
 
 export function protectAdminRoute(request: NextRequest) {
-  const { valid } = validateAdminAuth(request);
-
-  if (valid) {
-    return null;
+  const result = enforceAuth(request);
+  if (result.response) {
+    return result.response;
   }
 
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return undefined;
 }

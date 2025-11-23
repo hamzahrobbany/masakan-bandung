@@ -1,10 +1,17 @@
 // app/api/admin/orders/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
 type Params = { params: { id: string } };
 
-export async function PUT(req: Request, { params }: Params) {
+export const runtime = "nodejs";
+
+export async function PUT(req: NextRequest, { params }: Params) {
+  const guard = protectAdminRoute(req);
+  if (guard) return guard;
+
   try {
     const { id } = params;
     const { status } = await req.json();

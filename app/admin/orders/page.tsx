@@ -3,6 +3,9 @@
 
 import { useEffect, useState } from "react";
 
+import { readAdminToken } from "@/lib/admin-token";
+import { ADMIN_TOKEN_HEADER } from "@/lib/security";
+
 type OrderItem = {
   id: string;
   foodName: string;
@@ -44,18 +47,35 @@ export default function AdminOrdersPage() {
     loadOrders();
   }, []);
 
-  async function updateStatus(id: string, status: Order["status"]) {
-    const res = await fetch(`/api/admin/orders/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    });
-
-    if (!res.ok) {
-      alert("Gagal update status");
-      return;
+  function requireAdminToken() {
+    const token = readAdminToken();
+    if (!token) {
+      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
     }
+    return token;
+  }
 
-    await loadOrders();
+  async function updateStatus(id: string, status: Order["status"]) {
+    try {
+      const token = requireAdminToken();
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Gagal update status");
+      }
+
+      await loadOrders();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal update status";
+      alert(message);
+    }
   }
 
   return (
