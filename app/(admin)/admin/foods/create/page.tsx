@@ -1,9 +1,12 @@
-import FoodForm from "@/app/(admin)/admin/foods/components/FoodForm";
+import type { CategoryOption } from "@/app/(admin)/admin/foods/components/FoodForm";
+import FoodFormLazy from "@/app/(admin)/admin/foods/components/FoodFormLazy";
 import AdminProtected from "@/components/AdminProtected";
 import prisma from "@/lib/prisma";
 
 export default async function CreateFoodPage() {
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const categories: CategoryOption[] = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+  });
 
   return (
     <AdminProtected>
@@ -14,7 +17,7 @@ export default async function CreateFoodPage() {
           <p className="text-sm text-slate-600">Lengkapi data makanan lalu simpan.</p>
         </div>
 
-        <FoodForm categories={categories} />
+        <FoodFormLazy categories={categories} />
       </div>
     </AdminProtected>
   );

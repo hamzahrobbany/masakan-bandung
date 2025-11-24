@@ -2,48 +2,85 @@ import { NextRequest, NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { attachSessionCookie, verifyPassword } from "@/lib/auth";
+import {
+  ADMIN_LOGIN_PATH,
+  ADMIN_ROUTE_PREFIX,
+} from "@/lib/security";
 
-export const runtime = "nodejs";
+function sanitizeRedirect(target?: string | null) {
+  if (!target) return ADMIN_ROUTE_PREFIX;
+  return target.startsWith(ADMIN_ROUTE_PREFIX)
+    ? target
+    : ADMIN_ROUTE_PREFIX;
+}
+
+function redirectWithError(
+  req: NextRequest,
+  message: string,
+  redirectParam: string
+) {
+  const url = new URL(ADMIN_LOGIN_PATH, req.url);
+  if (redirectParam.startsWith(ADMIN_ROUTE_PREFIX)) {
+    url.searchParams.set("redirect", redirectParam);
+  }
+  url.searchParams.set("error", message);
+
+  return NextResponse.redirect(url, { status: 303 });
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const contentType = req.headers.get("content-type") ?? "";
+    let email = "";
+    let password = "";
+    let redirectParam = ADMIN_ROUTE_PREFIX;
+
+    if (contentType.includes("application/json")) {
+      const body = await req.json().catch(() => null);
+      email = body?.email?.toString().trim() ?? "";
+      password = body?.password?.toString() ?? "";
+      redirectParam = sanitizeRedirect(body?.redirect);
+    } else {
+      const formData = await req.formData();
+      email = formData.get("email")?.toString().trim() ?? "";
+      password = formData.get("password")?.toString() ?? "";
+      redirectParam = sanitizeRedirect(formData.get("redirect")?.toString());
+    }
+
+    if (!email || !password) {
+      return redirectWithError(
+        req,
+        "Email dan password wajib diisi",
+        redirectParam
+      );
+    }
 
     const admin = await prisma.admin.findUnique({
       where: { email },
     });
-
     if (!admin) {
-      return NextResponse.json(
-        { error: "Email tidak ditemukan" },
-        { status: 404 }
-      );
+      return redirectWithError(req, "Email tidak ditemukan", redirectParam);
     }
 
     const isValid = await verifyPassword(password, admin.passwordHash);
     if (!isValid) {
-      return NextResponse.json(
-        { error: "Password salah" },
-        { status: 401 }
-      );
+      return redirectWithError(req, "Password salah", redirectParam);
     }
 
-    // Redirect ke dashboard setelah login
-    const redirectURL = new URL("/admin", req.url);
-
-    const res = NextResponse.redirect(redirectURL);
+    const redirectUrl = new URL(redirectParam, req.url);
+    const res = NextResponse.redirect(redirectUrl, { status: 303 });
     attachSessionCookie(res, {
       id: admin.id,
       email: admin.email,
       name: admin.name,
     });
-
     return res;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json(
-      { error: "Login gagal" },
-      { status: 500 }
+    return redirectWithError(
+      req,
+      "Login gagal. Coba lagi.",
+      ADMIN_ROUTE_PREFIX
     );
   }
 }

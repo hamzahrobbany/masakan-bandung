@@ -21,7 +21,7 @@ export type FoodFormData = {
   isFeatured: boolean;
 };
 
-type FoodFormProps = {
+export type FoodFormProps = {
   categories: CategoryOption[];
   initialData?: FoodFormData;
   onSuccess?: () => void;

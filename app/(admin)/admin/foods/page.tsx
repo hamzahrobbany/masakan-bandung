@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -15,7 +16,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
-import FoodForm, {
+import type {
   CategoryOption,
   FoodFormData,
 } from "@/app/(admin)/admin/foods/components/FoodForm";
@@ -24,6 +25,17 @@ import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
+const FoodForm = dynamic(
+  () => import("@/app/(admin)/admin/foods/components/FoodForm"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+        Memuat form makanan...
+      </div>
+    ),
+  }
+);
 const { Title, Text } = Typography;
 
 type Food = FoodFormData & { id: string; category?: CategoryOption | null };
@@ -38,6 +50,17 @@ export default function AdminFoodsPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
+  const [queuedMessage, setQueuedMessage] = useState<{
+    type: "success" | "error";
+    content: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!queuedMessage) return;
+    const { type, content } = queuedMessage;
+    void messageApi[type](content);
+    setQueuedMessage(null);
+  }, [messageApi, queuedMessage]);
 
   const requireAdminToken = useCallback(() => {
     const token = readAdminToken();
@@ -62,7 +85,7 @@ export default function AdminFoodsPage() {
       const messageText =
         err instanceof Error ? err.message : "Gagal memuat kategori";
       setError(messageText);
-      messageApi.error(messageText);
+      setQueuedMessage({ type: "error", content: messageText });
     }
   }, [messageApi, requireAdminToken]);
 
@@ -82,7 +105,7 @@ export default function AdminFoodsPage() {
       const messageText =
         err instanceof Error ? err.message : "Gagal memuat makanan";
       setError(messageText);
-      messageApi.error(messageText);
+      setQueuedMessage({ type: "error", content: messageText });
     } finally {
       setTableLoading(false);
     }
@@ -113,11 +136,14 @@ export default function AdminFoodsPage() {
         }
         setEditingFood(null);
         await loadFoods();
-        messageApi.success("Makanan berhasil dihapus");
+        setQueuedMessage({
+          type: "success",
+          content: "Makanan berhasil dihapus",
+        });
       } catch (err) {
         const messageText =
           err instanceof Error ? err.message : "Gagal hapus makanan";
-        messageApi.error(messageText);
+        setQueuedMessage({ type: "error", content: messageText });
       } finally {
         setActionLoading(false);
       }
@@ -144,11 +170,14 @@ export default function AdminFoodsPage() {
           throw new Error("Gagal memperbarui status");
         }
         await loadFoods();
-        messageApi.success("Status makanan diperbarui");
+        setQueuedMessage({
+          type: "success",
+          content: "Status makanan diperbarui",
+        });
       } catch (err) {
         const messageText =
           err instanceof Error ? err.message : "Gagal memperbarui status";
-        messageApi.error(messageText);
+        setQueuedMessage({ type: "error", content: messageText });
       } finally {
         setActionLoading(false);
       }

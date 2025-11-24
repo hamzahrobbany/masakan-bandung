@@ -1,4 +1,5 @@
-import FoodForm, { FoodFormData } from "@/app/(admin)/admin/foods/components/FoodForm";
+import type { FoodFormData } from "@/app/(admin)/admin/foods/components/FoodForm";
+import FoodFormLazy from "@/app/(admin)/admin/foods/components/FoodFormLazy";
 import AdminProtected from "@/components/AdminProtected";
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -35,7 +36,7 @@ export default async function EditFoodPage({ params }: { params: { id: string } 
           <p className="text-sm text-slate-600">Perbarui data makanan berikut kemudian simpan.</p>
         </div>
 
-        <FoodForm categories={categories} initialData={initialData} />
+        <FoodFormLazy categories={categories} initialData={initialData} />
       </div>
     </AdminProtected>
   );

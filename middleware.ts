@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  ADMIN_LOGIN_PATH,
-  ADMIN_ROUTE_PREFIX,
-  ADMIN_SESSION_COOKIE,
-} from "@/lib/security";
-import { verifySessionToken } from "@/lib/auth";
+import { ADMIN_LOGIN_PATH, ADMIN_ROUTE_PREFIX } from "@/lib/security";
 
-export function middleware(req: NextRequest) {
+async function isAuthorized(req: NextRequest) {
+  const verifyUrl = new URL("/api/admin/session/verify", req.url);
+
+  try {
+    const response = await fetch(verifyUrl, {
+      headers: {
+        cookie: req.headers.get("cookie") ?? "",
+      },
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Middleware auth check failed:", error);
+    return false;
+  }
+}
+
+export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   if (!path.startsWith(ADMIN_ROUTE_PREFIX)) {
@@ -18,16 +30,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
-  const session = token ? verifySessionToken(token) : null;
-
-  if (!session) {
+  const authorized = await isAuthorized(req);
+  if (!authorized) {
     const loginURL = new URL(ADMIN_LOGIN_PATH, req.url);
     loginURL.searchParams.set("redirect", path);
 
-    const res = NextResponse.redirect(loginURL);
-    res.cookies.delete(ADMIN_SESSION_COOKIE);
-    return res;
+    return NextResponse.redirect(loginURL);
   }
 
   return NextResponse.next();
@@ -35,5 +43,4 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: ["/admin/:path*"],
-  runtime: "nodejs",
 };
