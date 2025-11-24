@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: false,
-  turbopack: {},
-  experimental: {
-    turbopackSourceMaps: false,
-  },
 
  images: {
   remotePatterns: [

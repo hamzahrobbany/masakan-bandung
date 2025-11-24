@@ -339,7 +339,7 @@ export default function AdminFoodsPage() {
         open={isModalOpen}
         onCancel={closeModal}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
         width={800}
         title={
