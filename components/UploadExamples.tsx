@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useFormState } from 'react-dom';
 
-import { uploadFoodImageAction } from '@/app/admin/foods/actions';
+import { uploadFoodImageAction } from '@/app/(admin)/admin/foods/actions';
 import { readAdminToken } from '@/lib/admin-token';
 import { ADMIN_TOKEN_HEADER } from '@/lib/security';
 

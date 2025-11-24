@@ -1,4 +1,4 @@
-import FoodForm, { FoodFormData } from "@/app/admin/foods/components/FoodForm";
+import FoodForm, { FoodFormData } from "@/app/(admin)/admin/foods/components/FoodForm";
 import AdminProtected from "@/components/AdminProtected";
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";

@@ -18,7 +18,7 @@ import type { ColumnsType } from "antd/es/table";
 import FoodForm, {
   CategoryOption,
   FoodFormData,
-} from "@/app/admin/foods/components/FoodForm";
+} from "@/app/(admin)/admin/foods/components/FoodForm";
 import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
