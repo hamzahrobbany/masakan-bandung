@@ -5,9 +5,38 @@ import { AntdRegistry } from "@ant-design/nextjs-registry";
 import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/components/CartProvider";
 
+const siteTitle = "Masakan Bandung | Kuliner Khas Bandung";
+const siteDescription =
+  "Katalog makanan khas Bandung dengan pemesanan cepat, kurasi resep autentik, dan panel admin modern.";
+const heroImageUrl = "https://masakan-bandung.vercel.app/placeholder.png";
+
 export const metadata: Metadata = {
-  title: "Masakan Bandung",
-  description: "Katalog makanan khas Bandung dengan fitur pemesanan cepat dan panel admin."
+  metadataBase: new URL("https://masakan-bandung.vercel.app"),
+  title: siteTitle,
+  description: siteDescription,
+  openGraph: {
+    title: siteTitle,
+    description: siteDescription,
+    url: "/",
+    siteName: "Masakan Bandung",
+    locale: "id_ID",
+    type: "website",
+    images: [
+      {
+        url: heroImageUrl,
+        width: 1200,
+        height: 630,
+        alt: "Hidangan khas Bandung sebagai gambar hero",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: [heroImageUrl],
+  },
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
