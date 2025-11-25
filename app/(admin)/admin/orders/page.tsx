@@ -427,6 +427,7 @@ export default function AdminOrdersPage() {
         onOk={handleCreate}
         confirmLoading={actionLoading}
         okText="Simpan"
+        forceRender
       >
         <Form form={createForm} layout="vertical" initialValues={{ status: "PENDING", items: [{}] }}>
           <Form.Item label="Nama Pelanggan" name="customerName">
