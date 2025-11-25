@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Descriptions, Tag, Table, Button, Select, message } from "antd";
+import { Descriptions, Tag, Table, Button, Select, message, Card, Typography, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import Link from "next/link";
 import { useParams } from "next/navigation";
+
+import { readAdminToken } from "@/lib/admin-token";
+import { ADMIN_TOKEN_HEADER } from "@/lib/security";
+import { formatCurrency } from "@/lib/utils";
 
 type OrderStatus = "PENDING" | "PROCESSED" | "DONE" | "CANCELLED";
 
@@ -24,14 +29,33 @@ type Order = {
   items: OrderItem[];
 };
 
+const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
+  { value: "PENDING", label: "PENDING" },
+  { value: "PROCESSED", label: "PROCESSED" },
+  { value: "DONE", label: "DONE" },
+  { value: "CANCELLED", label: "CANCELLED" },
+];
+
+const { Title } = Typography;
+
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [status, setStatus] = useState<OrderStatus>("PENDING");
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const requestOrder = useCallback(async (): Promise<Order | null> => {
-    const res = await fetch(`/api/orders/${id}`);
+    const token = readAdminToken();
+    if (!token) {
+      message.error("Token admin tidak ditemukan");
+      return null;
+    }
+
+    const res = await fetch(`/api/admin/orders/${id}`, {
+      headers: { [ADMIN_TOKEN_HEADER]: token },
+    });
     if (!res.ok) {
       message.error("Gagal memuat detail pesanan");
       return null;
@@ -41,12 +65,14 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     void (async () => {
       const data = await requestOrder();
       if (isMounted && data) {
         setOrder(data);
         setStatus(data.status);
       }
+      setLoading(false);
     })();
 
     return () => {
@@ -55,10 +81,17 @@ export default function OrderDetailPage() {
   }, [requestOrder]);
 
   const updateStatus = useCallback(async () => {
-    await fetch(`/api/orders/${id}`, {
+    const token = readAdminToken();
+    if (!token) {
+      message.error("Token admin tidak ditemukan");
+      return;
+    }
+    setActionLoading(true);
+    await fetch(`/api/admin/orders/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        [ADMIN_TOKEN_HEADER]: token,
       },
       body: JSON.stringify({ status }),
     });
@@ -69,6 +102,7 @@ export default function OrderDetailPage() {
       setOrder(latest);
       setStatus(latest.status);
     }
+    setActionLoading(false);
   }, [id, requestOrder, status]);
 
   const columns: ColumnsType<OrderItem> = [
@@ -76,21 +110,28 @@ export default function OrderDetailPage() {
     {
       title: "Harga",
       dataIndex: "foodPrice",
-      render: (value: number) => `Rp ${value.toLocaleString()}`,
+      render: (value: number) => formatCurrency(value),
     },
     { title: "Qty", dataIndex: "quantity" },
     {
       title: "Total",
-      render: (_, item) => `Rp ${(item.foodPrice * item.quantity).toLocaleString()}`,
+      render: (_, item) => formatCurrency(item.foodPrice * item.quantity),
     },
   ];
 
   return (
-    <>
-      <h1 className="text-xl font-bold mb-4">Detail Order</h1>
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <Title level={3} className="!mb-0">
+          Detail Pesanan
+        </Title>
+        <Link href="/admin/orders" className="text-amber-700 text-sm">
+          Kembali ke daftar
+        </Link>
+      </div>
 
-      {order && (
-        <>
+      <Card loading={loading}>
+        {order && (
           <Descriptions bordered column={1} className="mb-6">
             <Descriptions.Item label="Nama">
               {order.customerName || "-"}
@@ -102,33 +143,34 @@ export default function OrderDetailPage() {
               {order.note || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Total">
-              Rp {order.total.toLocaleString()}
+              {formatCurrency(order.total)}
             </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag>{order.status}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Ubah Status">
-              <Select<OrderStatus>
-                value={status}
-                style={{ width: 200 }}
-                onChange={(value) => setStatus(value)}
-                options={[
-                  { value: "PENDING", label: "PENDING" },
-                  { value: "PROCESSED", label: "PROCESSED" },
-                  { value: "DONE", label: "DONE" },
-                  { value: "CANCELLED", label: "CANCELLED" },
-                ]}
-              />
-              <Button type="primary" className="ml-3" onClick={updateStatus}>
-                Update
-              </Button>
+              <Space>
+                <Select<OrderStatus>
+                  value={status}
+                  style={{ width: 200 }}
+                  onChange={(value) => setStatus(value)}
+                  options={STATUS_OPTIONS}
+                />
+                <Button type="primary" onClick={updateStatus} loading={actionLoading}>
+                  Update
+                </Button>
+              </Space>
             </Descriptions.Item>
           </Descriptions>
+        )}
 
-          <h2 className="text-lg font-bold mb-2">Items</h2>
-          <Table<OrderItem> dataSource={order.items} rowKey="id" columns={columns} pagination={false} />
-        </>
-      )}
-    </>
+        {order && (
+          <>
+            <h2 className="text-lg font-bold mb-2">Items</h2>
+            <Table<OrderItem> dataSource={order.items} rowKey="id" columns={columns} pagination={false} />
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

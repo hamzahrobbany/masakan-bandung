@@ -1,13 +1,32 @@
-// app/admin/orders/page.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Card,
+  Input,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Typography,
+  message,
+  Form,
+  InputNumber,
+} from "antd";
+import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
+import { formatCurrency } from "@/lib/utils";
+
+type OrderStatus = "PENDING" | "PROCESSED" | "DONE" | "CANCELLED";
 
 type OrderItem = {
   id: string;
+  foodId?: string | null;
   foodName: string;
   foodPrice: number;
   quantity: number;
@@ -18,174 +37,432 @@ type Order = {
   customerName?: string | null;
   customerPhone?: string | null;
   note?: string | null;
-  status: "PENDING" | "PROCESSED" | "DONE" | "CANCELLED";
+  status: OrderStatus;
   total: number;
   createdAt: string;
   items: OrderItem[];
 };
 
-const STATUS_OPTIONS: Order["status"][] = [
-  "PENDING",
-  "PROCESSED",
-  "DONE",
-  "CANCELLED",
+type FoodsOption = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  isAvailable: boolean;
+};
+
+type ListResponse = {
+  data: Order[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const STATUS_OPTIONS: { label: string; value: OrderStatus; color: string }[] = [
+  { label: "PENDING", value: "PENDING", color: "gold" },
+  { label: "PROCESSED", value: "PROCESSED", color: "blue" },
+  { label: "DONE", value: "DONE", color: "green" },
+  { label: "CANCELLED", value: "CANCELLED", color: "red" },
 ];
+
+const { Title, Text } = Typography;
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [pagination, setPagination] = useState<{ page: number; pageSize: number }>(
+    { page: 1, pageSize: 10 }
+  );
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [tableLoading, setTableLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm] = Form.useForm();
+  const [foods, setFoods] = useState<FoodsOption[]>([]);
+  const [messageApi, contextHolder] = message.useMessage();
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = requireAdminToken();
-      const res = await fetch("/api/admin/orders", {
-        headers: {
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error("Gagal memuat pesanan");
-      }
-
-      const data = await res.json();
-      setOrders(data);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Token admin tidak ditemukan";
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  function requireAdminToken() {
+  const requireAdminToken = useCallback(() => {
     const token = readAdminToken();
     if (!token) {
       throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
     }
     return token;
-  }
+  }, []);
 
-  async function updateStatus(id: string, status: Order["status"]) {
+  const loadFoods = useCallback(async () => {
     try {
       const token = requireAdminToken();
-      const res = await fetch(`/api/admin/orders/${id}`, {
-        method: "PUT",
+      const res = await fetch("/api/admin/foods", {
+        headers: { [ADMIN_TOKEN_HEADER]: token },
+      });
+      if (!res.ok) throw new Error("Gagal memuat daftar makanan");
+      const data = await res.json();
+      setFoods(data);
+    } catch (err) {
+      const messageText = err instanceof Error ? err.message : "Gagal memuat makanan";
+      void messageApi.error(messageText);
+    }
+  }, [messageApi, requireAdminToken]);
+
+  const loadOrders = useCallback(
+    async (page = pagination.page, pageSize = pagination.pageSize, term = search) => {
+      setTableLoading(true);
+      try {
+        const token = requireAdminToken();
+        const params = new URLSearchParams({
+          page: String(page),
+          pageSize: String(pageSize),
+        });
+        if (term) params.set("search", term);
+
+        const res = await fetch(`/api/admin/orders?${params.toString()}` , {
+          headers: { [ADMIN_TOKEN_HEADER]: token },
+        });
+
+        if (!res.ok) {
+          throw new Error("Gagal memuat pesanan");
+        }
+
+        const data = (await res.json()) as ListResponse;
+        setOrders(data.data);
+        setTotal(data.total);
+        setPagination({ page: data.page, pageSize: data.pageSize });
+      } catch (err) {
+        const messageText = err instanceof Error ? err.message : "Gagal memuat pesanan";
+        void messageApi.error(messageText);
+      } finally {
+        setTableLoading(false);
+      }
+    },
+    [messageApi, pagination.page, pagination.pageSize, requireAdminToken, search]
+  );
+
+  useEffect(() => {
+    void loadFoods();
+  }, [loadFoods]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      void loadOrders(1, pagination.pageSize, searchInput.trim());
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [loadOrders, pagination.pageSize, searchInput]);
+
+  const handleTableChange = (config: TablePaginationConfig) => {
+    const nextPage = config.current ?? 1;
+    const nextSize = config.pageSize ?? pagination.pageSize;
+    setPagination({ page: nextPage, pageSize: nextSize });
+    void loadOrders(nextPage, nextSize);
+  };
+
+  const updateStatus = useCallback(
+    async (id: string, status: OrderStatus) => {
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch(`/api/admin/orders/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            [ADMIN_TOKEN_HEADER]: token,
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!res.ok) throw new Error("Gagal memperbarui status");
+        void messageApi.success("Status diperbarui");
+        void loadOrders();
+      } catch (err) {
+        const messageText = err instanceof Error ? err.message : "Gagal memperbarui status";
+        void messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [loadOrders, messageApi, requireAdminToken]
+  );
+
+  const deleteOrder = useCallback(
+    async (id: string) => {
+      setActionLoading(true);
+      try {
+        const token = requireAdminToken();
+        const res = await fetch(`/api/admin/orders/${id}`, {
+          method: "DELETE",
+          headers: { [ADMIN_TOKEN_HEADER]: token },
+        });
+        if (!res.ok) throw new Error("Gagal menghapus pesanan");
+        void messageApi.success("Pesanan dihapus");
+        void loadOrders();
+      } catch (err) {
+        const messageText = err instanceof Error ? err.message : "Gagal menghapus pesanan";
+        void messageApi.error(messageText);
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [loadOrders, messageApi, requireAdminToken]
+  );
+
+  const foodOptions = useMemo(
+    () =>
+      foods
+        .filter((food) => food.isAvailable)
+        .map((food) => ({
+          label: `${food.name} - ${formatCurrency(food.price)}`,
+          value: food.id,
+          disabled: food.stock <= 0,
+        })),
+    [foods]
+  );
+
+  const computeItemTotal = (items: { foodId: string; quantity: number }[]) => {
+    return items.reduce((sum, item) => {
+      const food = foods.find((f) => f.id === item.foodId);
+      if (!food) return sum;
+      return sum + food.price * item.quantity;
+    }, 0);
+  };
+
+  const handleCreate = useCallback(async () => {
+    try {
+      const values = await createForm.validateFields();
+      const items = (values.items ?? []).filter(
+        (item: { foodId?: string; quantity?: number }) => item.foodId && item.quantity > 0
+      );
+      if (items.length === 0) {
+        throw new Error("Minimal satu item pesanan");
+      }
+
+      const token = requireAdminToken();
+      setActionLoading(true);
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           [ADMIN_TOKEN_HEADER]: token,
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          customerName: values.customerName ?? null,
+          customerPhone: values.customerPhone ?? null,
+          note: values.note ?? null,
+          status: values.status ?? "PENDING",
+          items: items.map((item: { foodId: string; quantity: number }) => ({
+            foodId: item.foodId,
+            quantity: item.quantity,
+          })),
+        }),
       });
 
       if (!res.ok) {
-        throw new Error("Gagal update status");
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Gagal membuat pesanan");
       }
 
-      await loadOrders();
+      void messageApi.success("Pesanan berhasil dibuat");
+      setCreateModalOpen(false);
+      createForm.resetFields();
+      void loadOrders(1, pagination.pageSize);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal update status";
-      alert(message);
+      const messageText = err instanceof Error ? err.message : "Gagal membuat pesanan";
+      void messageApi.error(messageText);
+    } finally {
+      setActionLoading(false);
     }
-  }
+  }, [createForm, loadOrders, messageApi, pagination.pageSize, requireAdminToken]);
+
+  const columns: ColumnsType<Order> = [
+    {
+      title: "Pemesan",
+      dataIndex: "customerName",
+      render: (_, record) => (
+        <div>
+          <div className="font-semibold text-slate-800">{record.customerName || "Tanpa nama"}</div>
+          <div className="text-xs text-slate-500">{record.customerPhone || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      render: (_, record) => (
+        <Select
+          value={record.status}
+          size="small"
+          style={{ width: 140 }}
+          onChange={(value) => updateStatus(record.id, value)}
+          options={STATUS_OPTIONS}
+          disabled={actionLoading}
+        />
+      ),
+    },
+    {
+      title: "Total",
+      dataIndex: "total",
+      render: (value: number) => <Text strong>{formatCurrency(value)}</Text>,
+    },
+    {
+      title: "Dibuat",
+      dataIndex: "createdAt",
+      render: (value: string) => new Date(value).toLocaleString("id-ID"),
+    },
+    {
+      title: "Aksi",
+      render: (_, record) => (
+        <Space size="small">
+          <Link href={`/admin/orders/${record.id}`} className="text-amber-700">
+            Detail
+          </Link>
+          <Popconfirm
+            title="Hapus pesanan?"
+            okText="Ya"
+            cancelText="Batal"
+            onConfirm={() => deleteOrder(record.id)}
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger size="small" loading={actionLoading}>
+              Hapus
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Pesanan</h1>
+      {contextHolder}
+      <div className="flex items-center justify-between">
+        <Title level={3} className="!mb-0">
+          Pesanan
+        </Title>
+        <Button type="primary" onClick={() => setCreateModalOpen(true)}>
+          Tambah Pesanan
+        </Button>
+      </div>
 
-      <div className="bg-white rounded shadow p-4">
-        {loading && (
-          <div className="text-sm text-slate-500 mb-2">
-            Memuat pesanan...
+      <Card>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <Input.Search
+              placeholder="Cari nama, telepon, atau catatan"
+              allowClear
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onSearch={(value) => {
+                setSearchInput(value);
+                setSearch(value.trim());
+                void loadOrders(1, pagination.pageSize, value.trim());
+              }}
+              className="max-w-xl"
+            />
+            <div className="text-sm text-slate-500">
+              Total pesanan: <span className="font-semibold text-slate-700">{total}</span>
+            </div>
           </div>
-        )}
 
-        {orders.length === 0 && !loading ? (
-          <div className="text-sm text-slate-500">
-            Belum ada pesanan karena checkout publik belum aktif.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="border rounded p-4 flex flex-col gap-2"
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">
-                      {order.customerName || "Tanpa nama"}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {order.customerPhone || "-"}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-slate-500">
-                      {new Date(order.createdAt).toLocaleString("id-ID")}
-                    </div>
-                    <div className="font-bold">
-                      Rp {order.total.toLocaleString("id-ID")}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-500">
-                  Catatan: {order.note || "-"}
-                </div>
-
-                <div className="border-t pt-2 mt-1 text-sm">
-                  {order.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between text-xs py-1"
-                    >
+          <Table<Order>
+            rowKey="id"
+            loading={tableLoading}
+            columns={columns}
+            dataSource={orders}
+            pagination={{
+              current: pagination.page,
+              pageSize: pagination.pageSize,
+              total,
+              showSizeChanger: true,
+              showTotal: (t, range) => `${range[0]}-${range[1]} dari ${t}`,
+            }}
+            expandable={{
+              expandedRowRender: (record) => (
+                <div className="space-y-1">
+                  {record.items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
                       <span>
-                        {item.foodName} x {item.quantity}
+                        {item.foodName} <span className="text-xs text-slate-500">x {item.quantity}</span>
                       </span>
-                      <span>
-                        Rp{" "}
-                        {(item.foodPrice * item.quantity).toLocaleString(
-                          "id-ID"
-                        )}
-                      </span>
+                      <span>{formatCurrency(item.foodPrice * item.quantity)}</span>
                     </div>
                   ))}
+                  {record.note ? (
+                    <div className="text-xs text-slate-600">Catatan: {record.note}</div>
+                  ) : null}
                 </div>
+              ),
+            }}
+            onChange={handleTableChange}
+          />
+        </div>
+      </Card>
 
-                <div className="flex justify-between items-center pt-2 border-t mt-2">
-                  <div className="text-xs">
-                    Status:{" "}
-                    <span className="font-semibold">{order.status}</span>
+      <Modal
+        title="Tambah Pesanan"
+        open={createModalOpen}
+        onCancel={() => setCreateModalOpen(false)}
+        onOk={handleCreate}
+        confirmLoading={actionLoading}
+        okText="Simpan"
+      >
+        <Form form={createForm} layout="vertical" initialValues={{ status: "PENDING", items: [{}] }}>
+          <Form.Item label="Nama Pelanggan" name="customerName">
+            <Input placeholder="Nama (opsional)" />
+          </Form.Item>
+          <Form.Item label="Nomor Telepon" name="customerPhone">
+            <Input placeholder="Telepon (opsional)" />
+          </Form.Item>
+          <Form.Item label="Catatan" name="note">
+            <Input.TextArea rows={2} placeholder="Catatan pesanan" />
+          </Form.Item>
+          <Form.Item label="Status" name="status">
+            <Select options={STATUS_OPTIONS} />
+          </Form.Item>
+          <Form.List name="items">
+            {(fields, { add, remove }) => (
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div key={field.key} className="flex gap-2 items-start">
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "foodId"]}
+                      rules={[{ required: true, message: "Pilih menu" }]}
+                      className="flex-1"
+                    >
+                      <Select
+                        showSearch
+                        placeholder="Pilih menu"
+                        options={foodOptions}
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      {...field}
+                      name={[field.name, "quantity"]}
+                      rules={[{ required: true, message: "Jumlah" }]}
+                    >
+                      <InputNumber min={1} placeholder="Qty" />
+                    </Form.Item>
+                    {fields.length > 1 && (
+                      <Button danger type="text" onClick={() => remove(field.name)}>
+                        Hapus
+                      </Button>
+                    )}
+                    {index === fields.length - 1 && (
+                      <Button type="link" onClick={() => add()}>
+                        Tambah
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    {STATUS_OPTIONS.map((s) => (
-                      <button
-                        key={s}
-                        disabled={s === order.status}
-                        onClick={() => updateStatus(order.id, s)}
-                        className={`text-xs px-2 py-1 rounded border ${
-                          s === order.status
-                            ? "bg-slate-900 text-white border-slate-900"
-                            : "bg-white text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
+          </Form.List>
+          <div className="mt-4 text-sm text-slate-600">
+            Total sementara: {formatCurrency(computeItemTotal(createForm.getFieldValue("items") || []))}
           </div>
-        )}
-      </div>
+        </Form>
+      </Modal>
     </div>
   );
 }
