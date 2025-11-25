@@ -6,14 +6,12 @@ export const revalidate = 300;
 export default async function HomePage({
   searchParams
 }: {
-  searchParams?: Promise<{ category?: string; page?: string }>;
+  searchParams?: { category?: string; page?: string };
 }) {
-  const resolvedSearchParams = await searchParams;
-
   const selectedCategory =
-    typeof resolvedSearchParams?.category === 'string' ? resolvedSearchParams.category : null;
+    typeof searchParams?.category === 'string' ? searchParams.category : null;
   const page =
-    Number(resolvedSearchParams?.page) > 0 ? Number(resolvedSearchParams?.page) : 1;
+    Number(searchParams?.page) > 0 ? Number(searchParams?.page) : 1;
   const pageSize = 12;
 
   const foodFilter = {

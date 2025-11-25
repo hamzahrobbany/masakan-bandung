@@ -4,11 +4,12 @@ import "@ant-design/v5-patch-for-react-19";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/components/CartProvider";
+import AdminFooterCTA from "@/components/AdminFooterCTA";
 
 const siteTitle = "Masakan Bandung | Kuliner Khas Bandung";
 const siteDescription =
   "Katalog makanan khas Bandung dengan pemesanan cepat, kurasi resep autentik, dan panel admin modern.";
-const heroImageUrl = "https://masakan-bandung.vercel.app/placeholder.png";
+const heroImageUrl = "/placeholder.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://masakan-bandung.vercel.app"),
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="mx-auto max-w-6xl px-4 py-8">
               {children}
             </main>
+            <AdminFooterCTA />
           </CartProvider>
         </AntdRegistry>
       </body>

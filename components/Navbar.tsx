@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useCart } from './CartProvider';
@@ -13,32 +12,8 @@ const navItems = [
 
 export default function Navbar() {
   const { totalQuantity } = useCart();
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(false);
-
-  const handleAdminAccess = async () => {
-    setIsCheckingSession(true);
-
-    try {
-      const response = await fetch('/api/admin/session/verify', {
-        method: 'GET',
-        cache: 'no-store'
-      });
-
-      if (response.ok) {
-        router.push('/admin');
-      } else {
-        router.push('/admin/login');
-      }
-    } catch (error) {
-      console.error('Gagal memeriksa sesi admin:', error);
-      router.push('/admin/login');
-    } finally {
-      setIsCheckingSession(false);
-      setIsMenuOpen(false);
-    }
-  };
+  const menuId = 'primary-navigation-menu';
 
   const cartBadge =
     totalQuantity > 0 ? (
@@ -65,6 +40,8 @@ export default function Navbar() {
             <button
               type="button"
               aria-label="Toggle navigation menu"
+              aria-expanded={isMenuOpen}
+              aria-controls={menuId}
               className="rounded p-2 text-slate-600 transition hover:bg-slate-100 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               onClick={() => setIsMenuOpen((open) => !open)}
             >
@@ -86,6 +63,7 @@ export default function Navbar() {
             </button>
           </div>
           <div
+            id={menuId}
             className={`text-sm font-medium md:flex md:items-center md:gap-6 ${
               isMenuOpen ? 'mt-4 flex flex-col gap-4' : 'hidden'
             } md:mt-0`}
@@ -101,14 +79,6 @@ export default function Navbar() {
                 {item.href === '/cart' && cartBadge}
               </Link>
             ))}
-            <button
-              type="button"
-              className="rounded border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              onClick={handleAdminAccess}
-              disabled={isCheckingSession}
-            >
-              {isCheckingSession ? 'Memeriksa sesi...' : 'Login Admin'}
-            </button>
           </div>
         </div>
       </nav>
