@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 
 import {
   buildWhatsAppMessage,
@@ -63,6 +63,13 @@ export default function CheckoutPage() {
 
     return { adminNumber: normalizedAdmin, isAdminNumberValid: true, adminNumberError: '' };
   }, [adminWhatsAppEnv]);
+
+  useEffect(() => {
+    if (adminNumberError && status === 'idle') {
+      setStatus('error');
+      setFeedback(adminNumberError);
+    }
+  }, [adminNumberError, status]);
 
   const normalizedCustomerPhone = useMemo(
     () => normalizeWhatsAppNumber(customerPhone),
@@ -352,17 +359,24 @@ export default function CheckoutPage() {
             >
               {status === 'loading' ? 'Memproses...' : 'Buat Pesanan'}
             </button>
-            <a
-              href={isAdminNumberValid ? whatsappUrl : undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!isAdminNumberValid}
-              className={`block w-full rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 transition ${
-                isAdminNumberValid ? 'hover:bg-emerald-50' : 'cursor-not-allowed opacity-60'
-              }`}
-            >
-              {isAdminNumberValid ? 'Tanya admin via WhatsApp' : 'Nomor admin belum dikonfigurasi'}
-            </a>
+            {isAdminNumberValid ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block w-full rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 transition hover:bg-emerald-50"
+              >
+                Tanya admin via WhatsApp
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="block w-full cursor-not-allowed rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 opacity-60"
+              >
+                Nomor admin belum dikonfigurasi
+              </button>
+            )}
             {!isAdminNumberValid && (
               <p className="text-xs text-red-600">
                 {adminNumberError || 'Nomor admin belum dikonfigurasi. Atur NEXT_PUBLIC_ADMIN_WHATSAPP untuk mengaktifkan tombol WhatsApp.'}
