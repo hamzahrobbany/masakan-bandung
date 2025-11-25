@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SearchOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -136,6 +137,16 @@ export default function AdminOrdersPage() {
       }
     },
     [messageApi, pagination.page, pagination.pageSize, requireAdminToken, search]
+  );
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      setSearchInput(value);
+      setSearch(trimmed);
+      void loadOrders(1, pagination.pageSize, trimmed);
+    },
+    [loadOrders, pagination.pageSize]
   );
 
   useEffect(() => {
@@ -354,18 +365,22 @@ export default function AdminOrdersPage() {
       <Card>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <Input.Search
-              placeholder="Cari nama, telepon, atau catatan"
-              allowClear
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onSearch={(value) => {
-                setSearchInput(value);
-                setSearch(value.trim());
-                void loadOrders(1, pagination.pageSize, value.trim());
-              }}
-              className="max-w-xl"
-            />
+            <Space.Compact className="max-w-xl">
+              <Input
+                placeholder="Cari nama, telepon, atau catatan"
+                allowClear
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onPressEnter={(e) => handleSearch((e.target as HTMLInputElement).value)}
+              />
+              <Button
+                type="primary"
+                icon={<SearchOutlined />}
+                onClick={() => handleSearch(searchInput)}
+              >
+                Cari
+              </Button>
+            </Space.Compact>
             <div className="text-sm text-slate-500">
               Total pesanan: <span className="font-semibold text-slate-700">{total}</span>
             </div>
