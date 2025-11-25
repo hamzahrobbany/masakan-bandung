@@ -26,9 +26,14 @@ type HomeContentProps = {
   categories: Category[];
   foods: Food[];
   selectedCategory: string | null;
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
 };
 
-export default function HomeContent({ categories, foods, selectedCategory }: HomeContentProps) {
+export default function HomeContent({ categories, foods, selectedCategory, pagination }: HomeContentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -43,9 +48,25 @@ export default function HomeContent({ categories, foods, selectedCategory }: Hom
       params.set('category', categoryId);
     }
 
+    params.delete('page');
+
     const nextPath = params.toString() ? `${pathname}?${params.toString()}` : pathname;
     router.push(nextPath, { scroll: false });
   };
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(page));
+
+    const nextPath = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.push(nextPath, { scroll: false });
+  };
+
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
+  const isFirstPage = pagination.page <= 1;
+  const isLastPage = pagination.page >= totalPages;
+  const pageStart = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const pageEnd = Math.min(pagination.page * pagination.pageSize, pagination.total);
 
   return (
     <div className="space-y-10">
@@ -107,6 +128,36 @@ export default function HomeContent({ categories, foods, selectedCategory }: Hom
           ))}
           {foods.length === 0 && <p className="text-sm text-slate-500">Belum ada makanan di database.</p>}
         </div>
+        {pagination.total > pagination.pageSize && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              Menampilkan {pageStart} - {pageEnd} dari {pagination.total} menu
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={isFirstPage}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
+              >
+                Sebelumnya
+              </button>
+              <div className="flex items-center gap-1 text-sm text-slate-600" aria-live="polite">
+                <span className="font-semibold text-slate-900">{pagination.page}</span>
+                <span>/</span>
+                <span>{totalPages}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={isLastPage}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
