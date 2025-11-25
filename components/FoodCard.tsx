@@ -2,15 +2,8 @@
 
 import Image from 'next/image';
 import { useCallback } from 'react';
-import { CART_STORAGE_KEY, formatCurrency } from '@/lib/utils';
-
-type StoredItem = {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl: string;
-  quantity: number;
-};
+import { formatCurrency } from '@/lib/utils';
+import { useCart } from './CartProvider';
 
 type FoodSummary = {
   id: string;
@@ -27,6 +20,7 @@ export type FoodCardProps = {
     price: number;
     description?: string | null;
     imageUrl: string;
+    categoryId?: string | null;
     category?: { name: string } | null;
     isAvailable: boolean;
     isFeatured: boolean;
@@ -36,6 +30,8 @@ export type FoodCardProps = {
 };
 
 export default function FoodCard({ food }: FoodCardProps) {
+  const { addItem, items } = useCart();
+
   const handleAddToCart = useCallback(async () => {
     if (typeof window === 'undefined') return;
 
@@ -56,40 +52,26 @@ export default function FoodCard({ food }: FoodCardProps) {
         return;
       }
 
-      const existing = window.localStorage.getItem(CART_STORAGE_KEY);
-      const parsed: StoredItem[] = existing ? JSON.parse(existing) : [];
-      const index = parsed.findIndex((item) => item.id === food.id);
-      const currentQuantity = index > -1 ? parsed[index].quantity : 0;
+      const currentQuantity = items.find((item) => item.id === food.id)?.quantity ?? 0;
 
       if (currentQuantity >= summary.stock) {
         alert(`Stok ${food.name} tersisa ${summary.stock}.`);
         return;
       }
 
-      if (index > -1) {
-        parsed[index] = {
-          ...parsed[index],
-          name: summary.name,
-          price: summary.price,
-          quantity: parsed[index].quantity + 1,
-        };
-      } else {
-        parsed.push({
-          id: food.id,
-          name: summary.name,
-          price: summary.price,
-          imageUrl: food.imageUrl,
-          quantity: 1,
-        });
-      }
-
-      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(parsed));
+      addItem({
+        id: food.id,
+        name: summary.name,
+        price: summary.price,
+        imageUrl: food.imageUrl,
+        quantity: 1,
+      });
       alert(`${summary.name} masuk keranjang!`);
     } catch (error) {
       console.error('Add to cart error:', error);
       alert('Gagal memeriksa ketersediaan menu. Coba lagi.');
     }
-  }, [food]);
+  }, [addItem, food, items]);
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -110,7 +92,6 @@ export default function FoodCard({ food }: FoodCardProps) {
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 33vw"
-          unoptimized
         />
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">

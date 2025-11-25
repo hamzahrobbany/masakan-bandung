@@ -3,6 +3,7 @@ import "./globals.css";
 import "@ant-design/v5-patch-for-react-19";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import Navbar from "@/components/Navbar";
+import { CartProvider } from "@/components/CartProvider";
 
 export const metadata: Metadata = {
   title: "Masakan Bandung",
@@ -14,10 +15,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="id">
       <body className="min-h-screen bg-slate-50 text-slate-900">
         <AntdRegistry>
-          <Navbar />
-          <main className="mx-auto max-w-6xl px-4 py-8">
-            {children}
-          </main>
+          <CartProvider>
+            <Navbar />
+            <main className="mx-auto max-w-6xl px-4 py-8">
+              {children}
+            </main>
+          </CartProvider>
         </AntdRegistry>
       </body>
     </html>
