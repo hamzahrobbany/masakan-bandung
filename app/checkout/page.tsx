@@ -182,6 +182,17 @@ export default function CheckoutPage() {
     }
   }
 
+  async function retrySynchronization() {
+    setStatus('loading');
+    setFeedback('');
+
+    const syncedItems = await synchronizeCartWithBackend(items);
+    if (!syncedItems) return;
+
+    setStatus('idle');
+    setFeedback('Keranjang sudah disinkronkan ulang. Silakan lanjutkan checkout.');
+  }
+
   async function createOrder() {
     if (!items.length) {
       setFeedback('Keranjang masih kosong.');
@@ -327,7 +338,19 @@ export default function CheckoutPage() {
                   : 'border-emerald-200 bg-emerald-50 text-emerald-700'
               }`}
             >
-              {feedback}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="flex-1">{feedback}</p>
+                {status === 'error' && (
+                  <button
+                    type="button"
+                    onClick={retrySynchronization}
+                    disabled={status === 'loading' || items.length === 0}
+                    className="w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    Coba lagi
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
