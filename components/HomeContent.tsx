@@ -83,7 +83,8 @@ export default function HomeContent({ categories, foods, selectedCategory, pagin
                 key={category.id}
                 type="button"
                 onClick={() => handleCategoryChange(category.id)}
-                className={`rounded-2xl border p-4 text-left shadow-sm transition ${
+                aria-pressed={isActive}
+                className={`rounded-2xl border p-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
                   isActive
                     ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
                     : 'border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50'
@@ -115,7 +116,7 @@ export default function HomeContent({ categories, foods, selectedCategory, pagin
               <button
                 type="button"
                 onClick={() => handleCategoryChange(selectedCategory)}
-                className="rounded-full border border-emerald-500 px-3 py-1 text-emerald-600 transition hover:bg-emerald-50"
+                className="rounded-full border border-emerald-500 px-3 py-1 text-emerald-600 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Tampilkan semua
               </button>
@@ -138,12 +139,14 @@ export default function HomeContent({ categories, foods, selectedCategory, pagin
                 type="button"
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={isFirstPage}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
               >
                 Sebelumnya
               </button>
               <div className="flex items-center gap-1 text-sm text-slate-600" aria-live="polite">
-                <span className="font-semibold text-slate-900">{pagination.page}</span>
+                <span aria-current="page" className="font-semibold text-slate-900">
+                  {pagination.page}
+                </span>
                 <span>/</span>
                 <span>{totalPages}</span>
               </div>
@@ -151,7 +154,7 @@ export default function HomeContent({ categories, foods, selectedCategory, pagin
                 type="button"
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={isLastPage}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:border-emerald-200 hover:bg-emerald-50"
               >
                 Selanjutnya
               </button>
