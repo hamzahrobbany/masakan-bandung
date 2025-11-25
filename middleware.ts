@@ -34,6 +34,7 @@ export async function middleware(req: NextRequest) {
   if (!authorized) {
     const loginURL = new URL(ADMIN_LOGIN_PATH, req.url);
     loginURL.searchParams.set("redirect", path);
+    loginURL.searchParams.set("reason", "auth_required");
 
     return NextResponse.redirect(loginURL);
   }

@@ -1,19 +1,44 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useCart } from './CartProvider';
 
 const navItems = [
   { href: '/', label: 'Beranda' },
-  { href: '/cart', label: 'Keranjang' },
-  { href: '/admin/foods', label: 'Admin' }
+  { href: '/cart', label: 'Keranjang' }
 ];
 
 export default function Navbar() {
   const { totalQuantity } = useCart();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(false);
+
+  const handleAdminAccess = async () => {
+    setIsCheckingSession(true);
+
+    try {
+      const response = await fetch('/api/admin/session/verify', {
+        method: 'GET',
+        cache: 'no-store'
+      });
+
+      if (response.ok) {
+        router.push('/admin');
+      } else {
+        router.push('/admin/login');
+      }
+    } catch (error) {
+      console.error('Gagal memeriksa sesi admin:', error);
+      router.push('/admin/login');
+    } finally {
+      setIsCheckingSession(false);
+      setIsMenuOpen(false);
+    }
+  };
 
   const cartBadge =
     totalQuantity > 0 ? (
@@ -76,6 +101,14 @@ export default function Navbar() {
                 {item.href === '/cart' && cartBadge}
               </Link>
             ))}
+            <button
+              type="button"
+              className="rounded border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              onClick={handleAdminAccess}
+              disabled={isCheckingSession}
+            >
+              {isCheckingSession ? 'Memeriksa sesi...' : 'Login Admin'}
+            </button>
           </div>
         </div>
       </nav>
