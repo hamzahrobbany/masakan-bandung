@@ -40,9 +40,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== CART_STORAGE_KEY) return;
+
+      const stored = event.newValue;
+      if (!stored) {
+        setItems([]);
+        return;
+      }
+
+      try {
+        setItems(JSON.parse(stored));
+      } catch (error) {
+        console.error('Failed to parse cart storage from storage event', error);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handle = window.setTimeout(() => {
       window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-    }
+    }, 250);
+
+    return () => window.clearTimeout(handle);
   }, [items]);
 
   const totalQuantity = useMemo(
