@@ -150,6 +150,14 @@ export default function AdminOrdersPage() {
     return () => clearTimeout(timeout);
   }, [loadOrders, pagination.pageSize, searchInput]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadOrders(pagination.page, pagination.pageSize, search);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [loadOrders, pagination.page, pagination.pageSize, search]);
+
   const handleTableChange = (config: TablePaginationConfig) => {
     const nextPage = config.current ?? 1;
     const nextSize = config.pageSize ?? pagination.pageSize;
