@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
+    const { id: rawId } = await params;
+    const id = rawId?.trim();
     if (!id) {
       return NextResponse.json(
         { error: "ID pesanan tidak valid" },
@@ -54,7 +55,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
+    const { id: rawId } = await params;
+    const id = rawId?.trim();
     if (!id) {
       return NextResponse.json(
         { error: "ID pesanan tidak valid" },
@@ -118,7 +120,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
+    const { id: rawId } = await params;
+    const id = rawId?.trim();
     if (!id) {
       return NextResponse.json(
         { error: "ID pesanan tidak valid" },
