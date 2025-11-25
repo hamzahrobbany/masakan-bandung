@@ -20,7 +20,6 @@ import type {
   CategoryOption,
   FoodFormData,
 } from "@/app/(admin)/admin/foods/components/FoodForm";
-import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
@@ -300,7 +299,7 @@ export default function AdminFoodsPage() {
   );
 
   return (
-    <AdminProtected>
+    <>
       {contextHolder}
       <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}>
         <div>
@@ -392,6 +391,6 @@ export default function AdminFoodsPage() {
           onCancel={closeModal}
         />
       </Modal>
-    </AdminProtected>
+    </>
   );
 }

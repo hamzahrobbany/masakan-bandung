@@ -15,7 +15,6 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
-import AdminProtected from "@/components/AdminProtected";
 import { readAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 
@@ -251,7 +250,7 @@ export default function AdminCategoriesPage() {
   );
 
   return (
-    <AdminProtected>
+    <>
       {contextHolder}
       <Space direction="vertical" size="large" style={{ width: "100%", padding: 24 }}>
         <div>
@@ -309,6 +308,6 @@ export default function AdminCategoriesPage() {
           />
         </Card>
       </Space>
-    </AdminProtected>
+    </>
   );
 }
