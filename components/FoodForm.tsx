@@ -186,7 +186,7 @@ export default function FoodForm({ categories, initialData, foodId, onUploadSucc
         {uploading && <p className="text-sm text-slate-500">Mengunggah gambar...</p>}
         {imageUrl && (
           <div className="relative h-40 w-full overflow-hidden rounded-xl">
-            <Image src={imageUrl} alt="Preview" fill className="object-cover" sizes="100vw" unoptimized />
+            <Image src={imageUrl} alt="Preview" fill className="object-cover" sizes="100vw" />
           </div>
         )}
       </div>

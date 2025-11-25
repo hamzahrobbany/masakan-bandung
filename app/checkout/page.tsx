@@ -42,14 +42,26 @@ export default function CheckoutPage() {
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
 
-  const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '';
+  const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP;
 
-  const { adminNumber, isAdminNumberValid } = useMemo(() => {
+  const { adminNumber, isAdminNumberValid, adminNumberError } = useMemo(() => {
+    if (!adminWhatsAppEnv) {
+      const message =
+        'NEXT_PUBLIC_ADMIN_WHATSAPP belum disetel. Atur nomor admin untuk mengaktifkan WhatsApp checkout.';
+      console.error(message);
+      return { adminNumber: '', isAdminNumberValid: false, adminNumberError: message };
+    }
+
     const normalizedAdmin = normalizeWhatsAppNumber(adminWhatsAppEnv);
-    return {
-      adminNumber: normalizedAdmin,
-      isAdminNumberValid: isValidWhatsAppNumber(adminWhatsAppEnv) && Boolean(normalizedAdmin)
-    };
+    const valid = isValidWhatsAppNumber(adminWhatsAppEnv) && Boolean(normalizedAdmin);
+
+    if (!valid) {
+      const message = 'Format NEXT_PUBLIC_ADMIN_WHATSAPP tidak valid. Perbarui konfigurasi lingkungan Anda.';
+      console.error(message);
+      return { adminNumber: '', isAdminNumberValid: false, adminNumberError: message };
+    }
+
+    return { adminNumber: normalizedAdmin, isAdminNumberValid: true, adminNumberError: '' };
   }, [adminWhatsAppEnv]);
 
   const normalizedCustomerPhone = useMemo(
@@ -353,8 +365,7 @@ export default function CheckoutPage() {
             </a>
             {!isAdminNumberValid && (
               <p className="text-xs text-red-600">
-                Nomor admin belum dikonfigurasi. Atur NEXT_PUBLIC_ADMIN_WHATSAPP di environment untuk mengaktifkan
-                tombol WhatsApp.
+                {adminNumberError || 'Nomor admin belum dikonfigurasi. Atur NEXT_PUBLIC_ADMIN_WHATSAPP untuk mengaktifkan tombol WhatsApp.'}
               </p>
             )}
             {lastOrder && (
