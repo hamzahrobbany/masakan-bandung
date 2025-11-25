@@ -2,7 +2,13 @@
 
 import { startTransition, useMemo, useState } from 'react';
 
-import { buildWhatsAppMessage, buildWhatsAppUrl, formatCurrency } from '@/lib/utils';
+import {
+  buildWhatsAppMessage,
+  buildWhatsAppUrl,
+  formatCurrency,
+  isValidWhatsAppNumber,
+  normalizeWhatsAppNumber
+} from '@/lib/utils';
 import { useCart } from '@/components/CartProvider';
 
 type CartItem = {
@@ -25,8 +31,6 @@ type FoodSummary = {
   isAvailable: boolean;
 };
 
-const whatsappNumber = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '6287785817414';
-
 export default function CheckoutPage() {
   const { items, replaceItems, clearCart } = useCart();
   const [customerName, setCustomerName] = useState('');
@@ -38,8 +42,35 @@ export default function CheckoutPage() {
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
 
-  const message = buildWhatsAppMessage(items);
-  const whatsappUrl = buildWhatsAppUrl(whatsappNumber, message);
+  const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '';
+
+  const { adminNumber, isAdminNumberValid } = useMemo(() => {
+    const normalizedAdmin = normalizeWhatsAppNumber(adminWhatsAppEnv);
+    return {
+      adminNumber: normalizedAdmin,
+      isAdminNumberValid: isValidWhatsAppNumber(adminWhatsAppEnv) && Boolean(normalizedAdmin)
+    };
+  }, [adminWhatsAppEnv]);
+
+  const normalizedCustomerPhone = useMemo(
+    () => normalizeWhatsAppNumber(customerPhone),
+    [customerPhone]
+  );
+
+  const message = useMemo(
+    () =>
+      buildWhatsAppMessage(items, {
+        customerName: customerName.trim() || null,
+        customerPhone: normalizedCustomerPhone || null,
+        note: note.trim() || null
+      }),
+    [customerName, items, normalizedCustomerPhone, note]
+  );
+
+  const whatsappUrl = useMemo(() => {
+    if (!isAdminNumberValid) return '';
+    return buildWhatsAppUrl(adminNumber, message);
+  }, [adminNumber, isAdminNumberValid, message]);
 
   async function synchronizeCartWithBackend(currentItems: CartItem[]) {
     try {
@@ -143,6 +174,12 @@ export default function CheckoutPage() {
     setFeedback('');
     setLastOrder(null);
 
+    if (customerPhone.trim() && !isValidWhatsAppNumber(customerPhone)) {
+      setStatus('error');
+      setFeedback('Nomor WhatsApp tidak valid. Gunakan format 08xxxx atau 62xxxx tanpa spasi.');
+      return;
+    }
+
     const syncedItems = await synchronizeCartWithBackend(items);
     if (!syncedItems) {
       return;
@@ -154,7 +191,7 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerName: customerName.trim() || null,
-          customerPhone: customerPhone.trim() || null,
+          customerPhone: normalizedCustomerPhone || null,
           note: note.trim() || null,
           items: syncedItems.map((item) => ({ foodId: item.id, quantity: item.quantity }))
         })
@@ -304,13 +341,22 @@ export default function CheckoutPage() {
               {status === 'loading' ? 'Memproses...' : 'Buat Pesanan'}
             </button>
             <a
-              href={whatsappUrl}
+              href={isAdminNumberValid ? whatsappUrl : undefined}
               target="_blank"
               rel="noreferrer"
-              className="block w-full rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 transition hover:bg-emerald-50"
+              aria-disabled={!isAdminNumberValid}
+              className={`block w-full rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 transition ${
+                isAdminNumberValid ? 'hover:bg-emerald-50' : 'cursor-not-allowed opacity-60'
+              }`}
             >
-              Tanya admin via WhatsApp
+              {isAdminNumberValid ? 'Tanya admin via WhatsApp' : 'Nomor admin belum dikonfigurasi'}
             </a>
+            {!isAdminNumberValid && (
+              <p className="text-xs text-red-600">
+                Nomor admin belum dikonfigurasi. Atur NEXT_PUBLIC_ADMIN_WHATSAPP di environment untuk mengaktifkan
+                tombol WhatsApp.
+              </p>
+            )}
             {lastOrder && (
               <p className="text-xs text-slate-500">
                 Pesanan #{lastOrder.id} berhasil disimpan dengan status <span className="font-semibold">{lastOrder.status}</span>.

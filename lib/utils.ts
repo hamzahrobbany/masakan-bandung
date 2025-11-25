@@ -14,12 +14,42 @@ export type WhatsAppCartItem = {
   price: number;
 };
 
-export function buildWhatsAppMessage(items: WhatsAppCartItem[]) {
+export function normalizeWhatsAppNumber(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  return digits;
+}
+
+export function isValidWhatsAppNumber(value: string) {
+  const normalized = normalizeWhatsAppNumber(value);
+  return normalized.startsWith('62') && normalized.length >= 10 && normalized.length <= 15;
+}
+
+export function buildWhatsAppMessage(
+  items: WhatsAppCartItem[],
+  options?: { customerName?: string | null; customerPhone?: string | null; note?: string | null }
+) {
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const lines = items.length
     ? items.map((item) => `- ${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}`)
     : ['(Belum ada item di keranjang)'];
-  return `Halo, saya mau pesan:\n${lines.join('\n')}\nTotal: ${formatCurrency(total)}`;
+  const identityLines = [options?.customerName ? `Nama: ${options.customerName}` : null]
+    .concat(options?.customerPhone ? `No. WhatsApp: ${options.customerPhone}` : null)
+    .concat(options?.note ? `Catatan: ${options.note}` : null)
+    .filter(Boolean) as string[];
+
+  return [
+    'Halo, saya mau pesan:',
+    ...lines,
+    `Total: ${formatCurrency(total)}`,
+    identityLines.length ? '' : null,
+    identityLines.length ? 'Detail pemesan:' : null,
+    ...identityLines
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function buildWhatsAppUrl(number: string, message: string) {

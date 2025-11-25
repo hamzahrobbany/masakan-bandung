@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import FoodCard from './FoodCard';
 
 type Category = {
@@ -25,15 +25,27 @@ type Food = {
 type HomeContentProps = {
   categories: Category[];
   foods: Food[];
+  selectedCategory: string | null;
 };
 
-export default function HomeContent({ categories, foods }: HomeContentProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+export default function HomeContent({ categories, foods, selectedCategory }: HomeContentProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const filteredFoods = useMemo(() => {
-    if (!selectedCategory) return foods;
-    return foods.filter((food) => food.categoryId === selectedCategory);
-  }, [foods, selectedCategory]);
+  const handleCategoryChange = (categoryId: string) => {
+    const params = new URLSearchParams(searchParams);
+    const isActive = selectedCategory === categoryId;
+
+    if (isActive) {
+      params.delete('category');
+    } else {
+      params.set('category', categoryId);
+    }
+
+    const nextPath = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.push(nextPath, { scroll: false });
+  };
 
   return (
     <div className="space-y-10">
@@ -49,7 +61,7 @@ export default function HomeContent({ categories, foods }: HomeContentProps) {
               <button
                 key={category.id}
                 type="button"
-                onClick={() => setSelectedCategory(isActive ? null : category.id)}
+                onClick={() => handleCategoryChange(category.id)}
                 className={`rounded-2xl border p-4 text-left shadow-sm transition ${
                   isActive
                     ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
@@ -81,7 +93,7 @@ export default function HomeContent({ categories, foods }: HomeContentProps) {
             {selectedCategory && (
               <button
                 type="button"
-                onClick={() => setSelectedCategory(null)}
+                onClick={() => handleCategoryChange(selectedCategory)}
                 className="rounded-full border border-emerald-500 px-3 py-1 text-emerald-600 transition hover:bg-emerald-50"
               >
                 Tampilkan semua
@@ -90,12 +102,10 @@ export default function HomeContent({ categories, foods }: HomeContentProps) {
           </div>
         </div>
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filteredFoods.map((food) => (
+          {foods.map((food) => (
             <FoodCard key={food.id} food={food} />
           ))}
-          {filteredFoods.length === 0 && (
-            <p className="text-sm text-slate-500">Belum ada makanan di database.</p>
-          )}
+          {foods.length === 0 && <p className="text-sm text-slate-500">Belum ada makanan di database.</p>}
         </div>
       </section>
     </div>
