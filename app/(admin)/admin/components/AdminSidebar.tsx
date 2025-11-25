@@ -5,6 +5,7 @@ import {
   AppstoreOutlined,
   TagsOutlined,
   LogoutOutlined,
+  ShoppingOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
@@ -25,6 +26,11 @@ export default function AdminSidebar() {
       key: "/admin/foods",
       icon: <AppstoreOutlined />,
       label: "Makanan",
+    },
+    {
+      key: "/admin/orders",
+      icon: <ShoppingOutlined />,
+      label: "Pesanan",
     },
     {
       key: "/admin/categories",
