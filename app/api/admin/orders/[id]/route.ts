@@ -81,10 +81,20 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
 
-    const status = sanitizeOptionalString((body as Record<string, unknown>).status);
-    const customerName = sanitizeOptionalString((body as Record<string, unknown>).customerName);
-    const customerPhone = sanitizeOptionalString((body as Record<string, unknown>).customerPhone);
-    const note = sanitizeOptionalString((body as Record<string, unknown>).note);
+    const payload = body as Record<string, unknown>;
+    const hasStatus = Object.prototype.hasOwnProperty.call(payload, "status");
+    const hasCustomerName = Object.prototype.hasOwnProperty.call(payload, "customerName");
+    const hasCustomerPhone = Object.prototype.hasOwnProperty.call(payload, "customerPhone");
+    const hasNote = Object.prototype.hasOwnProperty.call(payload, "note");
+
+    const status = hasStatus ? sanitizeOptionalString(payload.status) : null;
+    const customerName = hasCustomerName
+      ? sanitizeOptionalString(payload.customerName)
+      : undefined;
+    const customerPhone = hasCustomerPhone
+      ? sanitizeOptionalString(payload.customerPhone)
+      : undefined;
+    const note = hasNote ? sanitizeOptionalString(payload.note) : undefined;
 
     if (
       status &&
@@ -99,14 +109,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const nextStatus: OrderStatus =
       (status as OrderStatus | null) ?? existing.status;
 
+    const data: {
+      status: OrderStatus;
+      customerName?: string | null;
+      customerPhone?: string | null;
+      note?: string | null;
+    } = {
+      status: nextStatus,
+    };
+
+    if (hasCustomerName) data.customerName = customerName ?? null;
+    if (hasCustomerPhone) data.customerPhone = customerPhone ?? null;
+    if (hasNote) data.note = note ?? null;
+
     const order = await prisma.order.update({
       where: { id },
-      data: {
-        status: nextStatus,
-        customerName,
-        customerPhone,
-        note,
-      },
+      data,
       include: { items: true },
     });
 
