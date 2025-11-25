@@ -446,11 +446,11 @@ export default function AdminOrdersPage() {
           <Form.List name="items">
             {(fields, { add, remove }) => (
               <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div key={field.key} className="flex gap-2 items-start">
+                {fields.map(({ key, name, ...restField }, index) => (
+                  <div key={key} className="flex gap-2 items-start">
                     <Form.Item
-                      {...field}
-                      name={[field.name, "foodId"]}
+                      {...restField}
+                      name={[name, "foodId"]}
                       rules={[{ required: true, message: "Pilih menu" }]}
                       className="flex-1"
                     >
@@ -462,14 +462,14 @@ export default function AdminOrdersPage() {
                       />
                     </Form.Item>
                     <Form.Item
-                      {...field}
-                      name={[field.name, "quantity"]}
+                      {...restField}
+                      name={[name, "quantity"]}
                       rules={[{ required: true, message: "Jumlah" }]}
                     >
                       <InputNumber min={1} placeholder="Qty" />
                     </Form.Item>
                     {fields.length > 1 && (
-                      <Button danger type="text" onClick={() => remove(field.name)}>
+                      <Button danger type="text" onClick={() => remove(name)}>
                         Hapus
                       </Button>
                     )}
