@@ -2,13 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useState } from 'react';
 
-import {
-  buildWhatsAppMessage,
-  buildWhatsAppUrl,
-  formatCurrency,
-  isValidWhatsAppNumber,
-  normalizeWhatsAppNumber
-} from '@/lib/utils';
+import { formatCurrency, isValidWhatsAppNumber, normalizeWhatsAppNumber } from '@/lib/utils';
 import { useCart } from '@/components/CartProvider';
 
 type CartItem = {
@@ -31,6 +25,43 @@ type FoodSummary = {
   isAvailable: boolean;
 };
 
+function buildAdminCheckoutMessage({
+  cartItems,
+  totalPrice,
+  name,
+  whatsapp,
+  note,
+}: {
+  cartItems: CartItem[];
+  totalPrice: number;
+  name: string;
+  whatsapp: string;
+  note: string;
+}) {
+  const safeName = name.trim() || '-';
+  const safeWhatsApp = whatsapp.trim() || '-';
+  const safeNote = note.trim() || '-';
+
+  const lines = [
+    '-------------------------------------------------',
+    'Halo admin, saya ingin memesan:',
+    '',
+    `Nama: ${safeName}`,
+    `WhatsApp: ${safeWhatsApp}`,
+    `Catatan: ${safeNote}`,
+    '',
+    `Total Pembayaran: ${formatCurrency(totalPrice)}`,
+    '',
+    'Rincian Pesanan:',
+    ...cartItems.map((item) => `- ${item.name} x${item.quantity} = ${formatCurrency(item.price * item.quantity)}`),
+    '-------------------------------------------------',
+  ];
+
+  return lines.join('\n');
+}
+
+const ADMIN_WHATSAPP_NUMBER = '6281234567890';
+
 export default function CheckoutPage() {
   const { items, replaceItems, clearCart } = useCart();
   const [customerName, setCustomerName] = useState('');
@@ -42,16 +73,9 @@ export default function CheckoutPage() {
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
 
-  const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP;
+  const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || ADMIN_WHATSAPP_NUMBER;
 
   const { adminNumber, isAdminNumberValid, adminNumberError } = useMemo(() => {
-    if (!adminWhatsAppEnv) {
-      const message =
-        'NEXT_PUBLIC_ADMIN_WHATSAPP belum disetel. Atur nomor admin untuk mengaktifkan WhatsApp checkout.';
-      console.error(message);
-      return { adminNumber: '', isAdminNumberValid: false, adminNumberError: message };
-    }
-
     const normalizedAdmin = normalizeWhatsAppNumber(adminWhatsAppEnv);
     const valid = isValidWhatsAppNumber(adminWhatsAppEnv) && Boolean(normalizedAdmin);
 
@@ -75,21 +99,6 @@ export default function CheckoutPage() {
     () => normalizeWhatsAppNumber(customerPhone),
     [customerPhone]
   );
-
-  const message = useMemo(
-    () =>
-      buildWhatsAppMessage(items, {
-        customerName: customerName.trim() || null,
-        customerPhone: normalizedCustomerPhone || null,
-        note: note.trim() || null
-      }),
-    [customerName, items, normalizedCustomerPhone, note]
-  );
-
-  const whatsappUrl = useMemo(() => {
-    if (!isAdminNumberValid) return '';
-    return buildWhatsAppUrl(adminNumber, message);
-  }, [adminNumber, isAdminNumberValid, message]);
 
   async function synchronizeCartWithBackend(currentItems: CartItem[]) {
     try {
@@ -193,16 +202,18 @@ export default function CheckoutPage() {
     setFeedback('Keranjang sudah disinkronkan ulang. Silakan lanjutkan checkout.');
   }
 
-  async function createOrder() {
+  async function handleCheckout() {
     if (!items.length) {
       setFeedback('Keranjang masih kosong.');
       setStatus('error');
       return;
     }
 
-    setStatus('loading');
-    setFeedback('');
-    setLastOrder(null);
+    if (!isAdminNumberValid) {
+      setStatus('error');
+      setFeedback('Nomor WhatsApp admin tidak valid. Perbarui konfigurasi dan coba lagi.');
+      return;
+    }
 
     if (customerPhone.trim() && !isValidWhatsAppNumber(customerPhone)) {
       setStatus('error');
@@ -210,21 +221,37 @@ export default function CheckoutPage() {
       return;
     }
 
+    setStatus('loading');
+    setFeedback('');
+    setLastOrder(null);
+
     const syncedItems = await synchronizeCartWithBackend(items);
     if (!syncedItems) {
       return;
     }
 
+    const latestTotal = syncedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
     try {
+      const cartItemsPayload = syncedItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        qty: item.quantity,
+        total: item.price * item.quantity,
+      }));
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: customerName.trim() || null,
-          customerPhone: normalizedCustomerPhone || null,
-          note: note.trim() || null,
-          items: syncedItems.map((item) => ({ foodId: item.id, quantity: item.quantity }))
-        })
+          name: customerName.trim(),
+          whatsapp: normalizedCustomerPhone,
+          note: note.trim(),
+          cartItems: cartItemsPayload,
+          totalPrice: latestTotal,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -241,11 +268,22 @@ export default function CheckoutPage() {
         return;
       }
 
-      setStatus('success');
-      setFeedback('Pesanan tersimpan. Admin akan memproses pesanan Anda.');
-      setLastOrder({ id: data.id, status: data.status });
+      const message = buildAdminCheckoutMessage({
+        cartItems: syncedItems,
+        totalPrice: latestTotal,
+        name: customerName,
+        whatsapp: normalizedCustomerPhone || customerPhone,
+        note,
+      });
 
+      const whatsappUrl = `https://wa.me/${adminNumber}?text=${encodeURIComponent(message)}`;
+
+      setStatus('success');
+      setFeedback('Pesanan tersimpan. Kami membuka WhatsApp untuk melanjutkan konfirmasi.');
+      setLastOrder({ id: data.id, status: data.status });
       clearCart();
+
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Order submit error:', error);
       setStatus('error');
@@ -376,30 +414,12 @@ export default function CheckoutPage() {
           <div className="mt-6 space-y-3">
             <button
               type="button"
-              onClick={createOrder}
-              disabled={status === 'loading' || items.length === 0}
+              onClick={handleCheckout}
+              disabled={status === 'loading' || items.length === 0 || !isAdminNumberValid}
               className="w-full rounded-full bg-emerald-500 px-4 py-3 text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {status === 'loading' ? 'Memproses...' : 'Buat Pesanan'}
+              {status === 'loading' ? 'Memproses...' : 'Checkout & Kirim WhatsApp'}
             </button>
-            {isAdminNumberValid ? (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block w-full rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 transition hover:bg-emerald-50"
-              >
-                Tanya admin via WhatsApp
-              </a>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="block w-full cursor-not-allowed rounded-full border border-emerald-500 px-4 py-3 text-center text-emerald-600 opacity-60"
-              >
-                Nomor admin belum dikonfigurasi
-              </button>
-            )}
             {!isAdminNumberValid && (
               <p className="text-xs text-red-600">
                 {adminNumberError || 'Nomor admin belum dikonfigurasi. Atur NEXT_PUBLIC_ADMIN_WHATSAPP untuk mengaktifkan tombol WhatsApp.'}

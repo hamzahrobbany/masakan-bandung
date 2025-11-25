@@ -9,6 +9,13 @@ type OrderItemInput = {
   quantity: number;
 };
 
+type CartItemInput = {
+  id?: string;
+  foodId?: string;
+  qty?: number;
+  quantity?: number;
+};
+
 function sanitizeOptionalString(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -43,6 +50,37 @@ function validateItems(raw: unknown): OrderItemInput[] | null {
   }
 
   return normalized;
+}
+
+function validateCartItems(raw: unknown): OrderItemInput[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return null;
+  }
+
+  const normalized: OrderItemInput[] = [];
+
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    const cartItem = item as CartItemInput;
+    const foodId = (cartItem.foodId ?? cartItem.id ?? "").trim();
+    const quantityInput = cartItem.quantity ?? cartItem.qty;
+    const quantity = Math.floor(typeof quantityInput === "number" ? quantityInput : 0);
+
+    if (!foodId || quantity <= 0) {
+      return null;
+    }
+
+    normalized.push({ foodId, quantity });
+  }
+
+  return normalized;
+}
+
+function extractItems(body: Record<string, unknown>): OrderItemInput[] | null {
+  return validateItems(body.items) ?? validateCartItems(body.cartItems) ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -92,10 +130,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payload tidak valid" }, { status: 400 });
     }
 
-    const customerName = sanitizeOptionalString((body as Record<string, unknown>).customerName);
-    const customerPhone = sanitizeOptionalString((body as Record<string, unknown>).customerPhone);
-    const note = sanitizeOptionalString((body as Record<string, unknown>).note);
-    const items = validateItems((body as Record<string, unknown>).items);
+    const payload = body as Record<string, unknown>;
+
+    const customerName = sanitizeOptionalString(payload.customerName ?? payload.name);
+    const customerPhone = sanitizeOptionalString(payload.customerPhone ?? payload.whatsapp);
+    const note = sanitizeOptionalString(payload.note);
+    const items = extractItems(payload);
 
     if (!items) {
       return NextResponse.json({ error: "Item pesanan tidak valid" }, { status: 400 });
