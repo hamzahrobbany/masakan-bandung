@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { id: string } };
-
 type FoodUpdatePayload = {
   name?: string;
   price?: number;
@@ -19,12 +17,15 @@ type FoodUpdatePayload = {
 
 export const runtime = "nodejs";
 
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
     if (!id) {
       return NextResponse.json(
         { error: "ID makanan tidak valid" },
@@ -95,12 +96,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
     if (!id) {
       return NextResponse.json(
         { error: "ID makanan tidak valid" },

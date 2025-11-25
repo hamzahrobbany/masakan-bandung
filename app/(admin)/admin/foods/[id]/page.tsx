@@ -3,10 +3,15 @@ import FoodFormLazy from "@/app/(admin)/admin/foods/components/FoodFormLazy";
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 
-export default async function EditFoodPage({ params }: { params: { id: string } }) {
+type EditFoodPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function EditFoodPage({ params }: EditFoodPageProps) {
+  const { id } = await params;
   const [categories, food] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.food.findUnique({ where: { id: params.id } }),
+    prisma.food.findUnique({ where: { id } }),
   ]);
 
   if (!food) {

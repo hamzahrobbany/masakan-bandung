@@ -249,7 +249,8 @@ export default function AdminOrdersPage() {
     try {
       const values = await createForm.validateFields();
       const items = (values.items ?? []).filter(
-        (item: { foodId?: string; quantity?: number }) => item.foodId && item.quantity > 0
+        (item: { foodId?: string; quantity?: number }) =>
+          item.foodId && (item.quantity ?? 0) > 0
       );
       if (items.length === 0) {
         throw new Error("Minimal satu item pesanan");

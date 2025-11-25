@@ -2,6 +2,8 @@ import type { CategoryOption } from "@/app/(admin)/admin/foods/components/FoodFo
 import FoodFormLazy from "@/app/(admin)/admin/foods/components/FoodFormLazy";
 import prisma from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateFoodPage() {
   const categories: CategoryOption[] = await prisma.category.findMany({
     orderBy: { name: "asc" },

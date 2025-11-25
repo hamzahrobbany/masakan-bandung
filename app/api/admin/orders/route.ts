@@ -1,6 +1,8 @@
 // app/api/admin/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+import { OrderStatus, Prisma } from "@prisma/client";
+
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
@@ -60,20 +62,34 @@ export async function GET(req: NextRequest) {
     );
     const status = req.nextUrl.searchParams.get("status")?.trim();
 
-    const where = {
-      ...(search
-        ? {
-            OR: [
-              { customerName: { contains: search, mode: "insensitive" } },
-              { customerPhone: { contains: search, mode: "insensitive" } },
-              { note: { contains: search, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-      ...(status && ["PENDING", "PROCESSED", "DONE", "CANCELLED"].includes(status)
-        ? { status }
-        : {}),
-    } as const;
+    const where: Prisma.OrderWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        {
+          customerName: {
+            contains: search,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        {
+          customerPhone: {
+            contains: search,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+        {
+          note: {
+            contains: search,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+      ];
+    }
+
+    if (status && ["PENDING", "PROCESSED", "DONE", "CANCELLED"].includes(status)) {
+      where.status = status as OrderStatus;
+    }
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
@@ -122,8 +138,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const status = (statusInput as string | null) ?? "PENDING";
-    const validStatuses = ["PENDING", "PROCESSED", "DONE", "CANCELLED"];
+    const status: OrderStatus =
+      (statusInput as OrderStatus | null) ?? OrderStatus.PENDING;
+    const validStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.PROCESSED,
+      OrderStatus.DONE,
+      OrderStatus.CANCELLED,
+    ];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { error: "Status tidak valid" },

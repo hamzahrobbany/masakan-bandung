@@ -11,7 +11,7 @@ type EditFoodPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export async function loadFoodData(foodId: string) {
+async function loadFoodData(foodId: string) {
   'use server';
   const [food, categories] = await Promise.all([
     prisma.food.findUnique({ where: { id: foodId } }),

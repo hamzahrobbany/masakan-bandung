@@ -86,7 +86,7 @@ export default function AdminFoodsPage() {
       setError(messageText);
       setQueuedMessage({ type: "error", content: messageText });
     }
-  }, [messageApi, requireAdminToken]);
+  }, [requireAdminToken]);
 
   const loadFoods = useCallback(async () => {
     setTableLoading(true);
@@ -108,7 +108,7 @@ export default function AdminFoodsPage() {
     } finally {
       setTableLoading(false);
     }
-  }, [messageApi, requireAdminToken]);
+  }, [requireAdminToken]);
 
   useEffect(() => {
     void Promise.all([loadCategories(), loadFoods()]);
@@ -147,7 +147,7 @@ export default function AdminFoodsPage() {
         setActionLoading(false);
       }
     },
-    [loadFoods, messageApi, requireAdminToken]
+    [loadFoods, requireAdminToken]
   );
 
   const toggleAvailability = useCallback(
@@ -181,7 +181,7 @@ export default function AdminFoodsPage() {
         setActionLoading(false);
       }
     },
-    [loadFoods, messageApi, requireAdminToken]
+    [loadFoods, requireAdminToken]
   );
 
   const openCreateModal = useCallback(() => {

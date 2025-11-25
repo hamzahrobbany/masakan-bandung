@@ -1,6 +1,8 @@
 // app/api/admin/orders/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+import type { OrderStatus } from "@prisma/client";
+
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
@@ -94,10 +96,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
 
+    const nextStatus: OrderStatus =
+      (status as OrderStatus | null) ?? existing.status;
+
     const order = await prisma.order.update({
       where: { id },
       data: {
-        status: status ?? existing.status,
+        status: nextStatus,
         customerName,
         customerPhone,
         note,

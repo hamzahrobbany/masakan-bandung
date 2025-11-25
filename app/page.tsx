@@ -2,16 +2,22 @@ import { prisma } from '@/lib/prisma';
 import HomeContent from '@/components/HomeContent';
 
 export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage({
   searchParams
 }: {
-  searchParams?: { category?: string; page?: string };
+  searchParams?: Promise<{ category?: string; page?: string }>;
 }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const selectedCategory =
-    typeof searchParams?.category === 'string' ? searchParams.category : null;
+    typeof resolvedSearchParams.category === 'string'
+      ? resolvedSearchParams.category
+      : null;
   const page =
-    Number(searchParams?.page) > 0 ? Number(searchParams?.page) : 1;
+    Number(resolvedSearchParams.page) > 0
+      ? Number(resolvedSearchParams.page)
+      : 1;
   const pageSize = 12;
 
   const foodFilter = {

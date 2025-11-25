@@ -9,6 +9,7 @@ type CartItem = {
   id: string;
   name: string;
   price: number;
+  imageUrl: string;
   quantity: number;
 };
 
@@ -72,6 +73,8 @@ export default function CheckoutPage() {
   const [lastOrder, setLastOrder] = useState<OrderResponse | null>(null);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
+
+  const isRetryDisabled = status === 'loading' || items.length === 0;
 
   const adminWhatsAppEnv = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || ADMIN_WHATSAPP_NUMBER;
 
@@ -382,7 +385,7 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={retrySynchronization}
-                    disabled={status === 'loading' || items.length === 0}
+                    disabled={isRetryDisabled}
                     className="w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     Coba lagi

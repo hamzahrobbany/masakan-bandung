@@ -3,8 +3,6 @@ import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 
-type Params = { params: { id: string } };
-
 export const runtime = "nodejs";
 
 async function ensureUniqueCategorySlug(name: string, excludeId: string) {
@@ -23,12 +21,15 @@ async function ensureUniqueCategorySlug(name: string, excludeId: string) {
   return slug;
 }
 
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
     if (!id) {
       return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
     }
@@ -61,12 +62,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   const guard = protectAdminRoute(req);
   if (guard) return guard;
 
   try {
-    const id = params?.id?.trim();
     if (!id) {
       return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
     }

@@ -1,5 +1,9 @@
 // app/admin/page.tsx
+import Link from "next/link";
+
 import prisma from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const [categoriesCount, foodsCount, ordersCount, pendingOrders, latestOrders] =
@@ -43,12 +47,12 @@ export default async function AdminDashboard() {
       <div className="bg-white rounded shadow p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Pesanan Terbaru</h2>
-          <a
+          <Link
             href="/admin/orders"
             className="text-sm text-amber-700 hover:text-amber-800"
           >
             Lihat semua
-          </a>
+          </Link>
         </div>
 
         {latestOrders.length === 0 ? (
@@ -77,12 +81,12 @@ export default async function AdminDashboard() {
                   <div className="font-bold">
                     Rp {order.total.toLocaleString("id-ID")}
                   </div>
-                  <a
+                  <Link
                     href={`/admin/orders/${order.id}`}
                     className="text-xs text-amber-700 hover:text-amber-800"
                   >
                     Detail
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))}
