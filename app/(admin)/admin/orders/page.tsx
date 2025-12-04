@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { SearchOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
+  Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -14,10 +23,9 @@ import {
   Table,
   Typography,
   message,
-  Form,
-  InputNumber,
 } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
+import type { MessageInstance } from "antd/es/message/interface";
 
 import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
@@ -53,7 +61,7 @@ type FoodsOption = {
 };
 
 type ListResponse = {
-  data: Order[];
+  orders: Order[];
   total: number;
   page: number;
   pageSize: number;
@@ -79,7 +87,6 @@ export default function AdminOrdersPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createForm] = Form.useForm();
   const [foods, setFoods] = useState<FoodsOption[]>([]);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -92,8 +99,14 @@ export default function AdminOrdersPage() {
         headers: { [ADMIN_TOKEN_HEADER]: token },
       });
       if (!res.ok) throw new Error("Gagal memuat daftar makanan");
-      const data = await res.json();
-      setFoods(data);
+      const payload = (await res.json()) as {
+        success: boolean;
+        data?: FoodsOption[];
+      };
+      if (!payload.success || !Array.isArray(payload.data)) {
+        throw new Error("Format data makanan tidak valid");
+      }
+      setFoods(payload.data);
     } catch (err) {
       const messageText = err instanceof Error ? err.message : "Gagal memuat makanan";
       void messageApi.error(messageText);
@@ -119,10 +132,18 @@ export default function AdminOrdersPage() {
           throw new Error("Gagal memuat pesanan");
         }
 
-        const data = (await res.json()) as ListResponse;
-        setOrders(data.data);
-        setTotal(data.total);
-        setPagination({ page: data.page, pageSize: data.pageSize });
+        const payload = (await res.json()) as {
+          success: boolean;
+          data?: ListResponse;
+        };
+        if (!payload.success || !payload.data) {
+          throw new Error("Format data pesanan tidak valid");
+        }
+        const { orders: fetchedOrders, total: fetchedTotal, page: respPage, pageSize: respPageSize } =
+          payload.data;
+        setOrders(fetchedOrders);
+        setTotal(fetchedTotal);
+        setPagination({ page: respPage, pageSize: respPageSize });
       } catch (err) {
         const messageText = err instanceof Error ? err.message : "Gagal memuat pesanan";
         void messageApi.error(messageText);
@@ -230,62 +251,6 @@ export default function AdminOrdersPage() {
         })),
     [foods]
   );
-
-  const computeItemTotal = (items: { foodId: string; quantity: number }[]) => {
-    return items.reduce((sum, item) => {
-      const food = foods.find((f) => f.id === item.foodId);
-      if (!food) return sum;
-      return sum + food.price * item.quantity;
-    }, 0);
-  };
-
-  const handleCreate = useCallback(async () => {
-    try {
-      const values = await createForm.validateFields();
-      const items = (values.items ?? []).filter(
-        (item: { foodId?: string; quantity?: number }) =>
-          item.foodId && (item.quantity ?? 0) > 0
-      );
-      if (items.length === 0) {
-        throw new Error("Minimal satu item pesanan");
-      }
-
-      const token = await requireAdminToken();
-      setActionLoading(true);
-      const res = await fetch("/api/admin/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          [ADMIN_TOKEN_HEADER]: token,
-        },
-        body: JSON.stringify({
-          customerName: values.customerName ?? null,
-          customerPhone: values.customerPhone ?? null,
-          note: values.note ?? null,
-          status: values.status ?? "PENDING",
-          items: items.map((item: { foodId: string; quantity: number }) => ({
-            foodId: item.foodId,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || "Gagal membuat pesanan");
-      }
-
-      void messageApi.success("Pesanan berhasil dibuat");
-      setCreateModalOpen(false);
-      createForm.resetFields();
-      void loadOrders(1, pagination.pageSize);
-    } catch (err) {
-      const messageText = err instanceof Error ? err.message : "Gagal membuat pesanan";
-      void messageApi.error(messageText);
-    } finally {
-      setActionLoading(false);
-    }
-  }, [createForm, loadOrders, messageApi, pagination.pageSize, requireAdminToken]);
 
   const columns: ColumnsType<Order> = [
     {
@@ -415,73 +380,187 @@ export default function AdminOrdersPage() {
         </div>
       </Card>
 
-      <Modal
-        title="Tambah Pesanan"
-        open={createModalOpen}
-        onCancel={() => setCreateModalOpen(false)}
-        onOk={handleCreate}
-        confirmLoading={actionLoading}
-        okText="Simpan"
-        forceRender
-      >
-        <Form form={createForm} layout="vertical" initialValues={{ status: "PENDING", items: [{}] }}>
-          <Form.Item label="Nama Pelanggan" name="customerName">
-            <Input placeholder="Nama (opsional)" />
-          </Form.Item>
-          <Form.Item label="Nomor Telepon" name="customerPhone">
-            <Input placeholder="Telepon (opsional)" />
-          </Form.Item>
-          <Form.Item label="Catatan" name="note">
-            <Input.TextArea rows={2} placeholder="Catatan pesanan" />
-          </Form.Item>
-          <Form.Item label="Status" name="status">
-            <Select options={STATUS_OPTIONS} />
-          </Form.Item>
-          <Form.List name="items">
-            {(fields, { add, remove }) => (
-              <div className="space-y-3">
-                {fields.map(({ key, name, ...restField }, index) => (
-                  <div key={key} className="flex gap-2 items-start">
-                    <Form.Item
-                      {...restField}
-                      name={[name, "foodId"]}
-                      rules={[{ required: true, message: "Pilih menu" }]}
-                      className="flex-1"
-                    >
-                      <Select
-                        showSearch
-                        placeholder="Pilih menu"
-                        options={foodOptions}
-                        optionFilterProp="label"
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      {...restField}
-                      name={[name, "quantity"]}
-                      rules={[{ required: true, message: "Jumlah" }]}
-                    >
-                      <InputNumber min={1} placeholder="Qty" />
-                    </Form.Item>
-                    {fields.length > 1 && (
-                      <Button danger type="text" onClick={() => remove(name)}>
-                        Hapus
-                      </Button>
-                    )}
-                    {index === fields.length - 1 && (
-                      <Button type="link" onClick={() => add()}>
-                        Tambah
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Form.List>
-          <div className="mt-4 text-sm text-slate-600">
-            Total sementara: {formatCurrency(computeItemTotal(createForm.getFieldValue("items") || []))}
-          </div>
-        </Form>
-      </Modal>
+      {createModalOpen ? (
+        <CreateOrderModal
+          actionLoading={actionLoading}
+          foodOptions={foodOptions}
+          foods={foods}
+          loadOrders={loadOrders}
+          messageApi={messageApi}
+          onClose={() => setCreateModalOpen(false)}
+          open={createModalOpen}
+          pageSize={pagination.pageSize}
+          requireAdminToken={requireAdminToken}
+          setActionLoading={setActionLoading}
+        />
+      ) : null}
     </div>
+  );
+}
+
+type CreateOrderFormValues = {
+  customerName?: string | null;
+  customerPhone?: string | null;
+  note?: string | null;
+  status?: OrderStatus;
+  items?: { foodId?: string; quantity?: number }[];
+};
+
+type CreateOrderModalProps = {
+  open: boolean;
+  onClose: () => void;
+  foods: FoodsOption[];
+  foodOptions: { label: string; value: string; disabled: boolean }[];
+  actionLoading: boolean;
+  setActionLoading: Dispatch<SetStateAction<boolean>>;
+  requireAdminToken: () => Promise<string>;
+  loadOrders: (page?: number, pageSize?: number, term?: string) => Promise<void>;
+  pageSize: number;
+  messageApi: MessageInstance;
+};
+
+function CreateOrderModal({
+  open,
+  onClose,
+  foods,
+  foodOptions,
+  actionLoading,
+  setActionLoading,
+  requireAdminToken,
+  loadOrders,
+  pageSize,
+  messageApi,
+}: CreateOrderModalProps) {
+  const [form] = Form.useForm<CreateOrderFormValues>();
+  const watchedItems = Form.useWatch("items", form);
+  const itemTotal = useMemo(() => {
+    return ((watchedItems ?? []) as { foodId?: string; quantity?: number }[]).reduce((sum, item) => {
+      const food = foods.find((f) => f.id === item.foodId);
+      if (!food || !item.quantity) return sum;
+      return sum + food.price * item.quantity;
+    }, 0);
+  }, [foods, watchedItems]);
+
+  const handleCreate = useCallback(async () => {
+    try {
+      const values = await form.validateFields();
+      const items = (values.items ?? []).filter(
+        (item): item is { foodId: string; quantity: number } =>
+          Boolean(item.foodId) && Boolean(item.quantity && item.quantity > 0)
+      );
+      if (items.length === 0) {
+        throw new Error("Minimal satu item pesanan");
+      }
+
+      const token = await requireAdminToken();
+      setActionLoading(true);
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [ADMIN_TOKEN_HEADER]: token,
+        },
+        body: JSON.stringify({
+          customerName: values.customerName ?? null,
+          customerPhone: values.customerPhone ?? null,
+          note: values.note ?? null,
+          status: values.status ?? "PENDING",
+          items,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Gagal membuat pesanan");
+      }
+
+      void messageApi.success("Pesanan berhasil dibuat");
+      onClose();
+      form.resetFields();
+      void loadOrders(1, pageSize);
+    } catch (err) {
+      const messageText = err instanceof Error ? err.message : "Gagal membuat pesanan";
+      void messageApi.error(messageText);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [
+    form,
+    loadOrders,
+    messageApi,
+    onClose,
+    pageSize,
+    requireAdminToken,
+    setActionLoading,
+  ]);
+
+  return (
+    <Modal
+      title="Tambah Pesanan"
+      open={open}
+      onCancel={onClose}
+      onOk={handleCreate}
+      confirmLoading={actionLoading}
+      okText="Simpan"
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical" initialValues={{ status: "PENDING", items: [{}] }}>
+        <Form.Item label="Nama Pelanggan" name="customerName">
+          <Input placeholder="Nama (opsional)" />
+        </Form.Item>
+        <Form.Item label="Nomor Telepon" name="customerPhone">
+          <Input placeholder="Telepon (opsional)" />
+        </Form.Item>
+        <Form.Item label="Catatan" name="note">
+          <Input.TextArea rows={2} placeholder="Catatan pesanan" />
+        </Form.Item>
+        <Form.Item label="Status" name="status">
+          <Select options={STATUS_OPTIONS} />
+        </Form.Item>
+        <Form.List name="items">
+          {(fields, { add, remove }) => (
+            <div className="space-y-3">
+              {fields.map(({ key, name, ...restField }, index) => (
+                <div key={key} className="flex gap-2 items-start">
+                  <Form.Item
+                    {...restField}
+                    name={[name, "foodId"]}
+                    rules={[{ required: true, message: "Pilih menu" }]}
+                    className="flex-1"
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Pilih menu"
+                      options={foodOptions}
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    {...restField}
+                    name={[name, "quantity"]}
+                    rules={[{ required: true, message: "Jumlah" }]}
+                  >
+                    <InputNumber min={1} placeholder="Qty" />
+                  </Form.Item>
+                  {fields.length > 1 && (
+                    <Button danger type="text" onClick={() => remove(name)}>
+                      Hapus
+                    </Button>
+                  )}
+                  {index === fields.length - 1 && (
+                    <Button type="link" onClick={() => add()}>
+                      Tambah
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Form.List>
+        <div className="mt-4 text-sm text-slate-600">
+          Total sementara: {formatCurrency(itemTotal)}
+        </div>
+      </Form>
+    </Modal>
   );
 }

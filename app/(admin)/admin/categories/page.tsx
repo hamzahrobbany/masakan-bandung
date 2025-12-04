@@ -51,8 +51,14 @@ export default function AdminCategoriesPage() {
       if (!res.ok) {
         throw new Error("Gagal memuat kategori");
       }
-      const data = await res.json();
-      setCategories(data);
+      const payload = (await res.json()) as {
+        success: boolean;
+        data?: Category[];
+      };
+      if (!payload.success || !Array.isArray(payload.data)) {
+        throw new Error("Format data kategori tidak valid");
+      }
+      setCategories(payload.data);
     } catch (err) {
       const messageText =
         err instanceof Error ? err.message : "Gagal memuat kategori";

@@ -64,7 +64,15 @@ export default function OrderDetailPage() {
       message.error("Gagal memuat detail pesanan");
       return null;
     }
-    return (await res.json()) as Order;
+    const payload = (await res.json()) as {
+      success: boolean;
+      data?: Order;
+    };
+    if (!payload.success || !payload.data) {
+      message.error("Format data pesanan tidak valid");
+      return null;
+    }
+    return payload.data;
   }, [id]);
 
   useEffect(() => {

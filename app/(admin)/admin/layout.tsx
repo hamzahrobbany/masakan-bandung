@@ -4,6 +4,15 @@ import type { ReactNode } from "react";
 import AdminProtected from "./components/AdminProtected";
 import AdminSidebarShell from "./components/AdminSidebarShell";
 
+export const metadata = {
+  title: "Admin Masakan Bandung",
+  description: "Dashboard pengelolaan menu dan pesanan",
+};
+
+export const viewport = {
+  themeColor: "#0f172a",
+};
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <AdminProtected>

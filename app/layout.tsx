@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [heroImageUrl],
   },
+};
+
+export const viewport = {
   themeColor: "#0f172a",
 };
 

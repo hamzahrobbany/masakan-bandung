@@ -1,5 +1,5 @@
 "use client";
-import { Layout, Menu } from "antd";
+import { Layout, Menu, message } from "antd";
 import {
   DashboardOutlined,
   AppstoreOutlined,
@@ -16,6 +16,7 @@ export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
   const menuItems = [
     {
       key: "/admin",
@@ -46,6 +47,7 @@ export default function AdminSidebar() {
   ];
   return (
     <Sider breakpoint="lg" collapsedWidth="0">
+      {contextHolder}
       <div className="p-4 text-white font-bold text-xl">Admin</div>
       <Menu
         theme="dark"
@@ -65,7 +67,9 @@ export default function AdminSidebar() {
                 },
               });
             } catch (error) {
-              console.error("Logout gagal:", error);
+              const messageText =
+                error instanceof Error ? error.message : "Sesi admin berakhir. Silakan login kembali.";
+              messageApi.info(messageText);
             } finally {
               clearAdminToken();
               setLoggingOut(false);

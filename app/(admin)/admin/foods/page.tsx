@@ -72,8 +72,14 @@ export default function AdminFoodsPage() {
         },
       });
       if (!res.ok) throw new Error("Gagal memuat kategori");
-      const data = await res.json();
-      setCategories(data);
+      const payload = (await res.json()) as {
+        success: boolean;
+        data?: CategoryOption[];
+      };
+      if (!payload.success || !Array.isArray(payload.data)) {
+        throw new Error("Format data kategori tidak valid");
+      }
+      setCategories(payload.data);
     } catch (err) {
       const messageText =
         err instanceof Error ? err.message : "Gagal memuat kategori";
@@ -92,8 +98,14 @@ export default function AdminFoodsPage() {
         },
       });
       if (!res.ok) throw new Error("Gagal memuat makanan");
-      const data = await res.json();
-      setFoods(data);
+      const payload = (await res.json()) as {
+        success: boolean;
+        data?: Food[];
+      };
+      if (!payload.success || !Array.isArray(payload.data)) {
+        throw new Error("Format data makanan tidak valid");
+      }
+      setFoods(payload.data);
     } catch (err) {
       const messageText =
         err instanceof Error ? err.message : "Gagal memuat makanan";

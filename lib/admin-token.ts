@@ -33,8 +33,11 @@ async function requestNewAdminToken() {
     throw new Error('Sesi admin tidak valid. Silakan login ulang.');
   }
 
-  const data = (await response.json()) as { csrfToken?: string };
-  const csrfToken = data?.csrfToken;
+  const data = (await response.json()) as {
+    success: boolean;
+    data?: { csrfToken?: string };
+  };
+  const csrfToken = data?.data?.csrfToken;
 
   if (!csrfToken) {
     throw new Error('Token admin tidak tersedia. Silakan login ulang.');
