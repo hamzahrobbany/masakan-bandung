@@ -119,10 +119,9 @@ export default function CheckoutPage() {
       if (!response.ok || !payload?.success || !payload.data?.items) {
         setStatus('error');
         const errorMessage =
-          (!payload?.success && payload?.error?.message) ??
-          (response.status === 404
+          response.status === 404
             ? 'Menu tidak ditemukan.'
-            : 'Gagal memuat detail menu terbaru.');
+            : 'Gagal memuat detail menu terbaru.';
         setFeedback(errorMessage);
         return null;
       }
