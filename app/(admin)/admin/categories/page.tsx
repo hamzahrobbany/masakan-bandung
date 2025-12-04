@@ -15,7 +15,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
-import { readAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 
 type Category = {
@@ -36,19 +36,13 @@ export default function AdminCategoriesPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
 
-  const requireAdminToken = useCallback(() => {
-    const token = readAdminToken();
-    if (!token) {
-      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-    }
-    return token;
-  }, []);
+  const requireAdminToken = useCallback(async () => ensureAdminToken(), []);
 
   const loadCategories = useCallback(async () => {
     setTableLoading(true);
     setError(null);
     try {
-      const token = requireAdminToken();
+      const token = await requireAdminToken();
       const res = await fetch("/api/admin/categories", {
         headers: {
           [ADMIN_TOKEN_HEADER]: token,
@@ -77,7 +71,7 @@ export default function AdminCategoriesPage() {
     async (values: { name: string }) => {
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: {
@@ -108,7 +102,7 @@ export default function AdminCategoriesPage() {
       if (!editingName.trim()) return;
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch(`/api/admin/categories/${id}`, {
           method: "PUT",
           headers: {
@@ -147,7 +141,7 @@ export default function AdminCategoriesPage() {
         onOk: async () => {
           setActionLoading(true);
           try {
-            const token = requireAdminToken();
+            const token = await requireAdminToken();
             const res = await fetch(`/api/admin/categories/${id}`, {
               method: "DELETE",
               headers: {

@@ -6,7 +6,7 @@ import type { ColumnsType } from "antd/es/table";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-import { readAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
@@ -47,9 +47,13 @@ export default function OrderDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const requestOrder = useCallback(async (): Promise<Order | null> => {
-    const token = readAdminToken();
-    if (!token) {
-      message.error("Token admin tidak ditemukan");
+    let token: string;
+    try {
+      token = await ensureAdminToken();
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : "Token admin tidak ditemukan";
+      message.error(messageText);
       return null;
     }
 
@@ -81,9 +85,13 @@ export default function OrderDetailPage() {
   }, [requestOrder]);
 
   const updateStatus = useCallback(async () => {
-    const token = readAdminToken();
-    if (!token) {
-      message.error("Token admin tidak ditemukan");
+    let token: string;
+    try {
+      token = await ensureAdminToken();
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : "Token admin tidak ditemukan";
+      message.error(messageText);
       return;
     }
     setActionLoading(true);

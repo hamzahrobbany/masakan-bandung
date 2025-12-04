@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useFormState } from 'react-dom';
 
 import { uploadFoodImageAction } from '@/app/(admin)/admin/foods/actions';
-import { readAdminToken } from '@/lib/admin-token';
+import { ensureAdminToken } from '@/lib/admin-token';
 import { ADMIN_TOKEN_HEADER } from '@/lib/security';
 
 type UploadFormState = {
@@ -53,15 +53,10 @@ export function UploadViaClientComponent() {
       return;
     }
 
-    const token = readAdminToken();
-    if (!token) {
-      setMessage({ error: 'Token admin belum tersedia. Login ulang.' });
-      return;
-    }
-
     setStatus('uploading');
     setMessage({});
     try {
+      const token = await ensureAdminToken();
       const requestForm = new FormData();
       requestForm.append('file', file);
       const response = await fetch('/api/upload', {

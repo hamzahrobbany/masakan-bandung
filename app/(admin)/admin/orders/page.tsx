@@ -19,7 +19,7 @@ import {
 } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 
-import { readAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
@@ -83,17 +83,11 @@ export default function AdminOrdersPage() {
   const [foods, setFoods] = useState<FoodsOption[]>([]);
   const [messageApi, contextHolder] = message.useMessage();
 
-  const requireAdminToken = useCallback(() => {
-    const token = readAdminToken();
-    if (!token) {
-      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-    }
-    return token;
-  }, []);
+  const requireAdminToken = useCallback(async () => ensureAdminToken(), []);
 
   const loadFoods = useCallback(async () => {
     try {
-      const token = requireAdminToken();
+      const token = await requireAdminToken();
       const res = await fetch("/api/admin/foods", {
         headers: { [ADMIN_TOKEN_HEADER]: token },
       });
@@ -110,7 +104,7 @@ export default function AdminOrdersPage() {
     async (page = pagination.page, pageSize = pagination.pageSize, term = search) => {
       setTableLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const params = new URLSearchParams({
           page: String(page),
           pageSize: String(pageSize),
@@ -180,7 +174,7 @@ export default function AdminOrdersPage() {
     async (id: string, status: OrderStatus) => {
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch(`/api/admin/orders/${id}`, {
           method: "PUT",
           headers: {
@@ -207,7 +201,7 @@ export default function AdminOrdersPage() {
     async (id: string) => {
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch(`/api/admin/orders/${id}`, {
           method: "DELETE",
           headers: { [ADMIN_TOKEN_HEADER]: token },
@@ -256,7 +250,7 @@ export default function AdminOrdersPage() {
         throw new Error("Minimal satu item pesanan");
       }
 
-      const token = requireAdminToken();
+      const token = await requireAdminToken();
       setActionLoading(true);
       const res = await fetch("/api/admin/orders", {
         method: "POST",

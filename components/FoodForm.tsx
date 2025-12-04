@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { readAdminToken } from '@/lib/admin-token';
+import { ensureAdminToken } from '@/lib/admin-token';
 import { ADMIN_TOKEN_HEADER } from '@/lib/security';
 import { formatCurrency } from '@/lib/utils';
 
@@ -43,10 +43,7 @@ export default function FoodForm({ categories, initialData, foodId, onUploadSucc
     setUploading(true);
     setError(null);
     try {
-      const adminToken = readAdminToken();
-      if (!adminToken) {
-        throw new Error('Token admin tidak ditemukan. Muat ulang halaman admin.');
-      }
+      const adminToken = await ensureAdminToken();
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch('/api/upload', {
@@ -96,10 +93,7 @@ export default function FoodForm({ categories, initialData, foodId, onUploadSucc
     const method = foodId ? 'PUT' : 'POST';
 
     try {
-      const adminToken = readAdminToken();
-      if (!adminToken) {
-        throw new Error('Token admin tidak ditemukan. Muat ulang halaman admin.');
-      }
+      const adminToken = await ensureAdminToken();
       const response = await fetch(url, {
         method,
         headers: {

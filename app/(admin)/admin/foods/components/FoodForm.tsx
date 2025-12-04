@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import { readAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 
 export type CategoryOption = { id: string; name: string };
@@ -87,10 +87,7 @@ export default function FoodForm({
     setError(null);
     setSuccess(null);
     try {
-      const adminToken = readAdminToken();
-      if (!adminToken) {
-        throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-      }
+      const adminToken = await ensureAdminToken();
 
       const formData = new FormData();
       formData.append("file", file);
@@ -169,10 +166,7 @@ export default function FoodForm({
 
     setSubmitting(true);
     try {
-      const adminToken = readAdminToken();
-      if (!adminToken) {
-        throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-      }
+      const adminToken = await ensureAdminToken();
 
       const url = initialData?.id
         ? `/api/admin/foods/${initialData.id}`

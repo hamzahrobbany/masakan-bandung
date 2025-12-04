@@ -9,7 +9,7 @@ import {
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
-import { readAdminToken, clearAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken, clearAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 const { Sider } = Layout;
 export default function AdminSidebar() {
@@ -55,13 +55,9 @@ export default function AdminSidebar() {
         onClick={async (info) => {
           if (info.key === "/admin/logout") {
             if (loggingOut) return;
-            const token = readAdminToken();
-            if (!token) {
-              router.push("/admin/login");
-              return;
-            }
             try {
               setLoggingOut(true);
+              const token = await ensureAdminToken();
               await fetch("/api/admin/logout", {
                 method: "POST",
                 headers: {

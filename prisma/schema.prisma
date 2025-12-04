@@ -77,6 +77,9 @@ model OrderItem {
   foodPrice Int
   quantity  Int
   createdAt DateTime @default(now())
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
   food      Food     @relation(fields: [foodId], references: [id])
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

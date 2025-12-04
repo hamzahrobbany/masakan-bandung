@@ -20,7 +20,7 @@ import type {
   CategoryOption,
   FoodFormData,
 } from "@/app/(admin)/admin/foods/components/FoodForm";
-import { readAdminToken } from "@/lib/admin-token";
+import { ensureAdminToken } from "@/lib/admin-token";
 import { ADMIN_TOKEN_HEADER } from "@/lib/security";
 import { formatCurrency } from "@/lib/utils";
 
@@ -61,17 +61,11 @@ export default function AdminFoodsPage() {
     setQueuedMessage(null);
   }, [messageApi, queuedMessage]);
 
-  const requireAdminToken = useCallback(() => {
-    const token = readAdminToken();
-    if (!token) {
-      throw new Error("Token admin tidak ditemukan. Muat ulang halaman admin.");
-    }
-    return token;
-  }, []);
+  const requireAdminToken = useCallback(async () => ensureAdminToken(), []);
 
   const loadCategories = useCallback(async () => {
     try {
-      const token = requireAdminToken();
+      const token = await requireAdminToken();
       const res = await fetch("/api/admin/categories", {
         headers: {
           [ADMIN_TOKEN_HEADER]: token,
@@ -91,7 +85,7 @@ export default function AdminFoodsPage() {
   const loadFoods = useCallback(async () => {
     setTableLoading(true);
     try {
-      const token = requireAdminToken();
+      const token = await requireAdminToken();
       const res = await fetch("/api/admin/foods", {
         headers: {
           [ADMIN_TOKEN_HEADER]: token,
@@ -123,7 +117,7 @@ export default function AdminFoodsPage() {
     async (id: string) => {
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch(`/api/admin/foods/${id}`, {
           method: "DELETE",
           headers: {
@@ -154,7 +148,7 @@ export default function AdminFoodsPage() {
     async (food: Food) => {
       setActionLoading(true);
       try {
-        const token = requireAdminToken();
+        const token = await requireAdminToken();
         const res = await fetch(`/api/admin/foods/${food.id}`, {
           method: "PUT",
           headers: {

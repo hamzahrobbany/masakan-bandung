@@ -1,5 +1,8 @@
--- DropForeignKey
 ALTER TABLE "OrderItem" DROP CONSTRAINT "OrderItem_foodId_fkey";
+
+-- Clean up orphaned order items that lack a food reference so the column can be enforced as NOT NULL
+DELETE FROM "OrderItem"
+WHERE "foodId" IS NULL;
 
 -- AlterTable
 ALTER TABLE "OrderItem" ALTER COLUMN "foodId" SET NOT NULL;
