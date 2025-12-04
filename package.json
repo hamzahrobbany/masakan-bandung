@@ -10,7 +10,9 @@
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
-    "test": "node --test ./lib/order-items.test.cjs"
+    "seed:test": "ts-node --project tsconfig.seed.json prisma/test-seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
@@ -38,6 +40,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.4"
   }
 }
