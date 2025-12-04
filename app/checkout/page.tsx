@@ -26,6 +26,10 @@ type FoodSummary = {
   isAvailable: boolean;
 };
 
+type ApiResponse<T> =
+  | { success: true; data?: T }
+  | { success: false; error?: { message?: string } };
+
 function buildAdminCheckoutMessage({
   cartItems,
   totalPrice,
@@ -108,19 +112,22 @@ export default function CheckoutPage() {
       const ids = Array.from(new Set(currentItems.map((item) => item.id)));
       const params = new URLSearchParams({ ids: ids.join(',') });
       const response = await fetch(`/api/orders?${params.toString()}`);
-      const data = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => null)) as
+        | ApiResponse<{ items: FoodSummary[] }>
+        | null;
 
-      if (!response.ok) {
+      if (!response.ok || !payload?.success || !payload.data?.items) {
         setStatus('error');
-        if (response.status === 404) {
-          setFeedback(data?.error ?? 'Menu tidak ditemukan.');
-        } else {
-          setFeedback(data?.error ?? 'Gagal memuat detail menu terbaru.');
-        }
+        const errorMessage =
+          (!payload?.success && payload?.error?.message) ??
+          (response.status === 404
+            ? 'Menu tidak ditemukan.'
+            : 'Gagal memuat detail menu terbaru.');
+        setFeedback(errorMessage);
         return null;
       }
 
-      const summaries = (data.items as FoodSummary[]) ?? [];
+      const summaries = payload.data.items;
       const summaryMap = new Map(summaries.map((item) => [item.id, item]));
 
       let changed = false;
@@ -237,36 +244,35 @@ export default function CheckoutPage() {
 
     try {
       const cartItemsPayload = syncedItems.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
+        foodId: item.id,
         quantity: item.quantity,
-        qty: item.quantity,
-        total: item.price * item.quantity,
       }));
 
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: customerName.trim(),
-          whatsapp: normalizedCustomerPhone,
-          note: note.trim(),
+          customerName: customerName.trim() || undefined,
+          customerPhone: normalizedCustomerPhone || undefined,
+          note: note.trim() || undefined,
           cartItems: cartItemsPayload,
-          totalPrice: latestTotal,
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => null)) as
+        | ApiResponse<OrderResponse>
+        | null;
 
-      if (!response.ok) {
+      if (!response.ok || !payload?.success || !payload.data) {
         setStatus('error');
+        const apiMessage =
+          (!payload?.success && payload?.error?.message) ?? undefined;
         if (response.status === 404) {
-          setFeedback(data?.error ?? 'Ada menu yang tidak ditemukan atau stok habis.');
+          setFeedback(apiMessage ?? 'Ada menu yang tidak ditemukan atau stok habis.');
         } else if (response.status >= 500) {
           setFeedback('Server bermasalah. Coba lagi beberapa saat.');
         } else {
-          setFeedback(data?.error ?? 'Gagal membuat pesanan, coba lagi.');
+          setFeedback(apiMessage ?? 'Gagal membuat pesanan, coba lagi.');
         }
         return;
       }
@@ -283,7 +289,7 @@ export default function CheckoutPage() {
 
       setStatus('success');
       setFeedback('Pesanan tersimpan. Kami membuka WhatsApp untuk melanjutkan konfirmasi.');
-      setLastOrder({ id: data.id, status: data.status });
+      setLastOrder(payload.data);
       clearCart();
 
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');

@@ -38,14 +38,20 @@ export default function FoodCard({ food }: FoodCardProps) {
     try {
       const params = new URLSearchParams({ ids: food.id });
       const response = await fetch(`/api/orders?${params.toString()}`);
-      const data = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => null)) as
+        | { success: true; data?: { items?: FoodSummary[] } }
+        | { success: false; error?: { message?: string } }
+        | null;
 
-      if (!response.ok) {
-        alert(data?.error ?? 'Menu tidak dapat dimasukkan ke keranjang saat ini.');
+      if (!response.ok || !payload?.success || !payload.data?.items) {
+        const errorMsg =
+          (!payload?.success && payload?.error?.message) ||
+          'Menu tidak dapat dimasukkan ke keranjang saat ini.';
+        alert(errorMsg);
         return;
       }
 
-      const summaries = Array.isArray(data.items) ? (data.items as FoodSummary[]) : [];
+      const summaries = payload.data.items;
       const summary = summaries.find((item) => item.id === food.id);
       if (!summary || !summary.isAvailable || summary.stock <= 0) {
         alert('Menu ini sedang tidak tersedia.');
