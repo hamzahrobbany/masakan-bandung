@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
+import { aggregateOrderItems } from "@/lib/order-items";
 
 export const runtime = "nodejs";
 
@@ -142,15 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gabungkan item dengan foodId yang sama
-    const aggregatedMap = new Map<string, number>();
-    for (const item of items) {
-      aggregatedMap.set(item.foodId, (aggregatedMap.get(item.foodId) ?? 0) + item.quantity);
-    }
-
-    const aggregated = Array.from(aggregatedMap.entries()).map(([foodId, quantity]) => ({
-      foodId,
-      quantity,
-    }));
+    const aggregated = aggregateOrderItems(items);
 
     const foods = await prisma.food.findMany({
       where: {

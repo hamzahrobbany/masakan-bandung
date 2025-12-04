@@ -72,17 +72,22 @@ model Order {
 model OrderItem {
   id        String   @id @default(uuid())
   orderId   String
-  foodId    String?
+  foodId    String
   foodName  String
   foodPrice Int
   quantity  Int
   createdAt DateTime @default(now())
+<<<<<<< ours
   createdBy String?
   updatedBy String?
   deletedAt DateTime?
   food      Food?    @relation(fields: [foodId], references: [id])
+=======
+  food      Food     @relation(fields: [foodId], references: [id])
+>>>>>>> theirs
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@unique([orderId, foodId])
   @@index([orderId])
   @@index([deletedAt])
 }

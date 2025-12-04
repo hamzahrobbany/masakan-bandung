@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+    "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "test": "node --test ./lib/order-items.test.cjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",

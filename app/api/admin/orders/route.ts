@@ -5,6 +5,7 @@ import { OrderStatus, Prisma } from "@prisma/client";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
+import { aggregateOrderItems } from "@/lib/order-items";
 
 type OrderItemInput = {
   foodId: string;
@@ -153,15 +154,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const aggregatedMap = new Map<string, number>();
-    for (const item of items) {
-      aggregatedMap.set(item.foodId, (aggregatedMap.get(item.foodId) ?? 0) + item.quantity);
-    }
-
-    const aggregated = Array.from(aggregatedMap.entries()).map(([foodId, quantity]) => ({
-      foodId,
-      quantity,
-    }));
+    const aggregated = aggregateOrderItems(items);
 
     const foods = await prisma.food.findMany({
       where: {
