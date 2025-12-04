@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import {
   calculateTotal,
@@ -10,6 +10,7 @@ import prisma from "@/lib/prisma";
 import { orderDetailRequestSchema } from "@/schemas/order.schema";
 import { validateRequest } from "@/utils/validate-request";
 import { enforceIpRateLimit } from "@/middleware/rate-limit";
+import { error, success } from "@/utils/response";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,10 @@ export async function GET(request: NextRequest) {
   });
 
   if (!validation.success) {
-    return NextResponse.json(validation.error, { status: 400 });
+    return error("VALIDATION_ERROR", "Parameter tidak valid", {
+      status: 400,
+      details: validation.error,
+    });
   }
 
   const ids = validation.data.ids;
@@ -31,10 +35,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (foods.length === 0) {
-      return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
+      return error("MENU_NOT_FOUND", "Menu tidak ditemukan", { status: 404 });
     }
 
-    return NextResponse.json({
+    return success({
       items: foods.map((food) => ({
         id: food.id,
         name: food.name,
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Gagal mengambil detail order:", error);
-    return NextResponse.json({ error: "Gagal memuat detail menu" }, { status: 500 });
+    return error("ORDER_DETAIL_FETCH_FAILED", "Gagal memuat detail menu", { status: 500 });
   }
 }
 
@@ -66,7 +70,10 @@ export async function POST(request: NextRequest) {
     const validation = validateOrder(body);
 
     if (!validation.success) {
-      return NextResponse.json(validation.error, { status: 400 });
+      return error("VALIDATION_ERROR", "Data pesanan tidak valid", {
+        status: 400,
+        details: validation.error,
+      });
     }
 
     const { customerName, customerPhone, note, items } = validation.data;
@@ -82,7 +89,11 @@ export async function POST(request: NextRequest) {
     const stockCheck = checkStock(items, foods);
 
     if (!stockCheck.success) {
-      return NextResponse.json({ error: stockCheck.error }, { status: stockCheck.status });
+      return error(
+        stockCheck.status === 400 ? "INSUFFICIENT_STOCK" : "MENU_NOT_FOUND",
+        stockCheck.error,
+        { status: stockCheck.status }
+      );
     }
 
     const total = calculateTotal(items, stockCheck.foodMap);
@@ -96,9 +107,9 @@ export async function POST(request: NextRequest) {
       total,
     });
 
-    return NextResponse.json({ id: order.id, status: order.status }, { status: 201 });
+    return success({ id: order.id, status: order.status }, { status: 201 });
   } catch (error) {
     console.error("Gagal membuat order:", error);
-    return NextResponse.json({ error: "Gagal membuat pesanan" }, { status: 500 });
+    return error("ORDER_CREATE_FAILED", "Gagal membuat pesanan", { status: 500 });
   }
 }

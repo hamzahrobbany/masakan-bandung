@@ -1,10 +1,11 @@
 // app/api/admin/foods/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { createFoodRequestSchema } from "@/schemas/food.schema";
 import { validateRequest } from "@/utils/validate-request";
+import { error, success } from "@/utils/response";
 
 export const runtime = "nodejs";
 
@@ -18,13 +19,10 @@ export async function GET(req: NextRequest) {
       include: { category: true },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(foods);
+    return success(foods);
   } catch (error) {
     console.error("Gagal memuat makanan:", error);
-    return NextResponse.json(
-      { error: "Gagal memuat makanan" },
-      { status: 500 }
-    );
+    return error("FOOD_FETCH_FAILED", "Gagal memuat makanan", { status: 500 });
   }
 }
 
@@ -37,7 +35,10 @@ export async function POST(req: NextRequest) {
     const validation = validateRequest(createFoodRequestSchema, body);
 
     if (!validation.success) {
-      return NextResponse.json(validation.error, { status: 400 });
+      return error("VALIDATION_ERROR", "Data makanan tidak valid", {
+        details: validation.error,
+        status: 400,
+      });
     }
 
     const {
@@ -54,10 +55,7 @@ export async function POST(req: NextRequest) {
 
     const category = await prisma.category.findUnique({ where: { id: categoryId } });
     if (!category || category.deletedAt) {
-      return NextResponse.json(
-        { error: "Kategori tidak ditemukan" },
-        { status: 404 }
-      );
+      return error("CATEGORY_NOT_FOUND", "Kategori tidak ditemukan", { status: 404 });
     }
 
     const adminId = session.id;
@@ -78,12 +76,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(food, { status: 201 });
+    return success(food, { status: 201 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { error: "Gagal membuat makanan" },
-      { status: 500 }
-    );
+    return error("FOOD_CREATE_FAILED", "Gagal membuat makanan", { status: 500 });
   }
 }

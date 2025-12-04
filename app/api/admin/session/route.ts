@@ -1,11 +1,12 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest } from "next/server";
 
 import {
   generateAdminCsrfToken,
   getAdminSessionFromRequest,
   persistAdminCsrfToken
-} from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+} from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { error, success } from "@/utils/response";
 
 // ===========================================================
 // GET /api/admin/session
@@ -15,10 +16,10 @@ export async function GET(request: NextRequest) {
     // Ambil session dari cookie request
     const session = getAdminSessionFromRequest(request);
     if (!session) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      );
+      return error("UNAUTHORIZED", "Tidak terautentikasi", {
+        status: 401,
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
     // Ambil data admin dari database
@@ -33,19 +34,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (!admin) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      );
+      return error("UNAUTHORIZED", "Tidak terautentikasi", {
+        status: 401,
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
     // Generate CSRF token baru
     const csrfToken = generateAdminCsrfToken();
 
     // Bentuk response
-    const res = NextResponse.json(
+    const res = success(
       { authenticated: true, admin, csrfToken },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { "Cache-Control": "no-store" } }
     );
 
     // Simpan CSRF ke cookie
@@ -54,10 +55,10 @@ export async function GET(request: NextRequest) {
     return res;
 
   } catch (error) {
-    console.error('Admin session error:', error);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    );
+    console.error("Admin session error:", error);
+    return error("ADMIN_SESSION_ERROR", "Terjadi kesalahan pada server", {
+      status: 500,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 }

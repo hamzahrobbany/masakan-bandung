@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+
+import { error } from "@/utils/response";
 
 interface RateLimitConfig {
   windowMs: number;
@@ -151,20 +153,18 @@ function logRateLimitBlocked(identifier: string, config: RateLimitConfig, result
 function buildRateLimitResponse(config: RateLimitConfig, result: RateLimitResult) {
   const retryAfterSeconds = Math.max(Math.ceil(result.resetInMs / 1000), 1);
 
-  return NextResponse.json(
-    {
-      error: "RATE_LIMITED",
-      message: "Terlalu banyak permintaan, silakan coba lagi nanti.",
-      details: {
-        limit: config.max,
-        windowMs: config.windowMs,
-        retryAfterMs: result.resetInMs,
-      },
-    },
+  return error(
+    "RATE_LIMITED",
+    "Terlalu banyak permintaan, silakan coba lagi nanti.",
     {
       status: 429,
       headers: {
         "Retry-After": retryAfterSeconds.toString(),
+      },
+      details: {
+        limit: config.max,
+        windowMs: config.windowMs,
+        retryAfterMs: result.resetInMs,
       },
     }
   );

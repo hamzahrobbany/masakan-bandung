@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { createCategoryRequestSchema } from "@/schemas/category.schema";
 import { validateRequest } from "@/utils/validate-request";
+import { error, success } from "@/utils/response";
 
 export const runtime = "nodejs";
 
@@ -39,13 +40,10 @@ export async function GET(req: NextRequest) {
       where: { deletedAt: null },
       orderBy: { name: "asc" },
     });
-    return NextResponse.json(categories);
+    return success(categories);
   } catch (error) {
     console.error("Gagal memuat kategori:", error);
-    return NextResponse.json(
-      { error: "Gagal memuat kategori" },
-      { status: 500 }
-    );
+    return error("CATEGORY_FETCH_FAILED", "Gagal memuat kategori", { status: 500 });
   }
 }
 
@@ -58,7 +56,10 @@ export async function POST(req: NextRequest) {
     const validation = validateRequest(createCategoryRequestSchema, body);
 
     if (!validation.success) {
-      return NextResponse.json(validation.error, { status: 400 });
+      return error("VALIDATION_ERROR", "Data kategori tidak valid", {
+        status: 400,
+        details: validation.error,
+      });
     }
 
     const { name } = validation.data;
@@ -70,9 +71,9 @@ export async function POST(req: NextRequest) {
       data: { name, slug, createdBy: adminId, updatedBy: adminId },
     });
 
-    return NextResponse.json(category, { status: 201 });
+    return success(category, { status: 201 });
   } catch (error) {
     console.error("Membuat kategori gagal:", error);
-    return NextResponse.json({ error: "Gagal membuat kategori" }, { status: 500 });
+    return error("CATEGORY_CREATE_FAILED", "Gagal membuat kategori", { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 // app/api/admin/orders/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { OrderStatus, Prisma } from "@prisma/client";
 
@@ -11,6 +11,7 @@ import {
   adminOrderRequestSchema,
 } from "@/schemas/order.schema";
 import { validateRequest } from "@/utils/validate-request";
+import { error, success } from "@/utils/response";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,10 @@ export async function GET(req: NextRequest) {
   });
 
   if (!validation.success) {
-    return NextResponse.json(validation.error, { status: 400 });
+    return error("VALIDATION_ERROR", "Parameter pencarian tidak valid", {
+      status: 400,
+      details: validation.error,
+    });
   }
 
   const { search, page, pageSize, status } = validation.data;
@@ -72,13 +76,10 @@ export async function GET(req: NextRequest) {
       prisma.order.count({ where }),
     ]);
 
-    return NextResponse.json({ data: orders, total, page, pageSize });
+    return success({ orders, total, page, pageSize });
   } catch (error) {
     console.error("Gagal memuat pesanan admin:", error);
-    return NextResponse.json(
-      { error: "Gagal memuat pesanan" },
-      { status: 500 }
-    );
+    return error("ORDER_FETCH_FAILED", "Gagal memuat pesanan", { status: 500 });
   }
 }
 
@@ -91,7 +92,10 @@ export async function POST(req: NextRequest) {
     const validation = validateRequest(adminOrderRequestSchema, body);
 
     if (!validation.success) {
-      return NextResponse.json(validation.error, { status: 400 });
+      return error("VALIDATION_ERROR", "Data pesanan tidak valid", {
+        status: 400,
+        details: validation.error,
+      });
     }
 
     const { customerName, customerPhone, note, items, status } = validation.data;
@@ -106,10 +110,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (foods.length !== aggregated.length) {
-      return NextResponse.json(
-        { error: "Ada menu yang tidak ditemukan" },
-        { status: 404 }
-      );
+      return error("FOOD_NOT_FOUND", "Ada menu yang tidak ditemukan", {
+        status: 404,
+      });
     }
 
     const foodMap = new Map(foods.map((food) => [food.id, food]));
@@ -117,14 +120,14 @@ export async function POST(req: NextRequest) {
     for (const item of aggregated) {
       const food = foodMap.get(item.foodId)!;
       if (!food.isAvailable) {
-        return NextResponse.json(
-          { error: `${food.name} sedang tidak tersedia` },
-          { status: 404 }
-        );
+        return error("FOOD_UNAVAILABLE", `${food.name} sedang tidak tersedia`, {
+          status: 404,
+        });
       }
       if (food.stock < item.quantity) {
-        return NextResponse.json(
-          { error: `Stok ${food.name} tidak mencukupi. Sisa ${food.stock}` },
+        return error(
+          "INSUFFICIENT_STOCK",
+          `Stok ${food.name} tidak mencukupi. Sisa ${food.stock}`,
           { status: 400 }
         );
       }
@@ -175,12 +178,9 @@ export async function POST(req: NextRequest) {
       return created;
     });
 
-    return NextResponse.json({ id: order.id, status: order.status }, { status: 201 });
+    return success({ id: order.id, status: order.status }, { status: 201 });
   } catch (error) {
     console.error("Gagal membuat pesanan admin:", error);
-    return NextResponse.json(
-      { error: "Gagal membuat pesanan" },
-      { status: 500 }
-    );
+    return error("ORDER_CREATE_FAILED", "Gagal membuat pesanan", { status: 500 });
   }
 }
