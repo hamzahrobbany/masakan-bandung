@@ -6,59 +6,50 @@ import {
   persistAdminCsrfToken
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { error, success } from "@/utils/response";
+import { success } from "@/utils/response";
+import { AuthError } from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
 
 // ===========================================================
 // GET /api/admin/session
 // ===========================================================
-export async function GET(request: NextRequest) {
-  try {
-    // Ambil session dari cookie request
-    const session = getAdminSessionFromRequest(request);
-    if (!session) {
-      return error("UNAUTHORIZED", "Tidak terautentikasi", {
-        status: 401,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
-
-    // Ambil data admin dari database
-    const admin = await prisma.admin.findFirst({
-      where: { id: session.id, deletedAt: null },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true
-      }
-    });
-
-    if (!admin) {
-      return error("UNAUTHORIZED", "Tidak terautentikasi", {
-        status: 401,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
-
-    // Generate CSRF token baru
-    const csrfToken = generateAdminCsrfToken();
-
-    // Bentuk response
-    const res = success(
-      { authenticated: true, admin, csrfToken },
-      { headers: { "Cache-Control": "no-store" } }
-    );
-
-    // Simpan CSRF ke cookie
-    persistAdminCsrfToken(res, csrfToken);
-
-    return res;
-
-  } catch (error) {
-    console.error("Admin session error:", error);
-    return error("ADMIN_SESSION_ERROR", "Terjadi kesalahan pada server", {
-      status: 500,
+export const GET = withErrorHandling(async (request: NextRequest) => {
+  // Ambil session dari cookie request
+  const session = getAdminSessionFromRequest(request);
+  if (!session) {
+    throw new AuthError("Tidak terautentikasi", {
       headers: { "Cache-Control": "no-store" },
     });
   }
-}
+
+  // Ambil data admin dari database
+  const admin = await prisma.admin.findFirst({
+    where: { id: session.id, deletedAt: null },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true
+    }
+  });
+
+  if (!admin) {
+    throw new AuthError("Tidak terautentikasi", {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  // Generate CSRF token baru
+  const csrfToken = generateAdminCsrfToken();
+
+  // Bentuk response
+  const res = success(
+    { authenticated: true, admin, csrfToken },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+
+  // Simpan CSRF ke cookie
+  persistAdminCsrfToken(res, csrfToken);
+
+  return res;
+});

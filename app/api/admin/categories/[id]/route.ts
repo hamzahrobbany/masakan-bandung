@@ -1,8 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import {
+  NotFoundError,
+  ValidationError,
+} from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
+import { success } from "@/utils/response";
 
 export const runtime = "nodejs";
 
@@ -24,28 +30,24 @@ async function ensureUniqueCategorySlug(name: string, excludeId: string) {
   return slug;
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+export const PUT = withErrorHandling(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const { session } = protectAdminRoute(req);
 
-  try {
     if (!id) {
-      return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
+      throw new ValidationError("ID kategori tidak valid");
     }
 
     const { name } = await req.json();
 
     if (!name) {
-      return NextResponse.json({ error: "Nama wajib" }, { status: 400 });
+      throw new ValidationError("Nama kategori wajib diisi");
     }
 
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing || existing.deletedAt) {
-      return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
+      throw new NotFoundError("Kategori tidak ditemukan", { code: "CATEGORY_NOT_FOUND" });
     }
 
     const slug =
@@ -58,29 +60,22 @@ export async function PUT(
       data: { name, slug, updatedBy: session.id },
     });
 
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("Update kategori gagal:", error);
-    return NextResponse.json({ error: "Gagal memperbarui kategori" }, { status: 500 });
+    return success(updated);
   }
-}
+);
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+export const DELETE = withErrorHandling(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const { session } = protectAdminRoute(req);
 
-  try {
     if (!id) {
-      return NextResponse.json({ error: "ID kategori tidak valid" }, { status: 400 });
+      throw new ValidationError("ID kategori tidak valid");
     }
 
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing || existing.deletedAt) {
-      return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
+      throw new NotFoundError("Kategori tidak ditemukan", { code: "CATEGORY_NOT_FOUND" });
     }
 
     await prisma.category.update({
@@ -88,12 +83,6 @@ export async function DELETE(
       data: { deletedAt: new Date(), updatedBy: session.id },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Gagal menghapus kategori:", error);
-    return NextResponse.json(
-      { error: "Gagal menghapus kategori" },
-      { status: 500 }
-    );
+    return success();
   }
-}
+);

@@ -1,19 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import {
   protectAdminRoute as enforceAuth,
   type AdminSessionPayload,
 } from "@/lib/auth";
 
-type AdminGuardResult =
-  | { response: NextResponse; session?: undefined }
-  | { response?: undefined; session: AdminSessionPayload };
+type AdminGuardResult = { session: AdminSessionPayload };
 
 export function protectAdminRoute(request: NextRequest): AdminGuardResult {
-  const result = enforceAuth(request);
-  if (result.response) {
-    return { response: result.response };
-  }
+  const { session } = enforceAuth(request);
 
-  return { session: result.session };
+  return { session };
 }

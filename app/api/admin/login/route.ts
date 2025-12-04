@@ -6,6 +6,7 @@ import { ADMIN_LOGIN_PATH, ADMIN_ROUTE_PREFIX } from "@/lib/security";
 import { adminLoginRequestSchema } from "@/schemas/admin-login.schema";
 import { validateRequest } from "@/utils/validate-request";
 import { enforceIpRateLimit } from "@/middleware/rate-limit";
+import { withErrorHandling } from "@/utils/api-handler";
 
 function sanitizeRedirect(target?: string | null) {
   if (!target) return ADMIN_ROUTE_PREFIX;
@@ -42,17 +43,13 @@ function redirectWithError(req: NextRequest, message: string, redirectParam: str
   return NextResponse.redirect(url, { status: 303 });
 }
 
-export async function POST(req: NextRequest) {
-  const rateLimit = await enforceIpRateLimit(req, {
+export const POST = withErrorHandling(async (req: NextRequest) => {
+  await enforceIpRateLimit(req, {
     max: 5,
     windowMs: 10 * 60 * 1000,
     route: "/api/admin/login",
     name: "admin-login",
   });
-
-  if (rateLimit.limited) {
-    return rateLimit.response;
-  }
 
   try {
     const rawPayload = await parsePayload(req);
@@ -93,4 +90,4 @@ export async function POST(req: NextRequest) {
     console.error("Login error:", error);
     return redirectWithError(req, "Login gagal. Coba lagi.", ADMIN_ROUTE_PREFIX);
   }
-}
+});

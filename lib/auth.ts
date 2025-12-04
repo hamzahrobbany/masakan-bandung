@@ -10,6 +10,7 @@ import {
   ADMIN_SESSION_COOKIE,
   ADMIN_TOKEN_HEADER,
 } from "@/lib/security";
+import { AuthError, PermissionError } from "@/utils/api-errors";
 
 // =======================================================
 // ENV (selalu pakai env.ts karena seed pakai auth.seed.ts)
@@ -181,9 +182,7 @@ export function protectAdminRoute(request: NextRequest) {
   const session = getAdminSessionFromRequest(request);
 
   if (!session) {
-    return {
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
+    throw new AuthError("Tidak terautentikasi");
   }
 
   if (shouldValidateCsrf(request.method)) {
@@ -191,12 +190,9 @@ export function protectAdminRoute(request: NextRequest) {
     const storedHash = request.cookies.get(ADMIN_CSRF_COOKIE)?.value;
 
     if (!csrfHeader || !storedHash) {
-      return {
-        response: NextResponse.json(
-          { error: "CSRF token missing" },
-          { status: 403 }
-        ),
-      };
+      throw new PermissionError("CSRF token tidak ditemukan", {
+        code: "CSRF_TOKEN_MISSING",
+      });
     }
 
     const hashedHeader = hashCsrfToken(csrfHeader);
@@ -207,12 +203,9 @@ export function protectAdminRoute(request: NextRequest) {
         Buffer.from(storedHash)
       )
     ) {
-      return {
-        response: NextResponse.json(
-          { error: "Invalid CSRF token" },
-          { status: 403 }
-        ),
-      };
+      throw new PermissionError("CSRF token tidak valid", {
+        code: "INVALID_CSRF_TOKEN",
+      });
     }
   }
 

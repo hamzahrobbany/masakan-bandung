@@ -5,7 +5,9 @@ import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { createCategoryRequestSchema } from "@/schemas/category.schema";
 import { validateRequest } from "@/utils/validate-request";
-import { error, success } from "@/utils/response";
+import { success } from "@/utils/response";
+import { ValidationError } from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
 
 export const runtime = "nodejs";
 
@@ -31,49 +33,36 @@ async function ensureUniqueCategorySlug(name: string, excludeId?: string) {
   return slug;
 }
 
-export async function GET(req: NextRequest) {
-  const { response } = protectAdminRoute(req);
-  if (response) return response;
+export const GET = withErrorHandling(async (req: NextRequest) => {
+  protectAdminRoute(req);
 
-  try {
-    const categories = await prisma.category.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
+  const categories = await prisma.category.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+  });
+  return success(categories);
+});
+
+export const POST = withErrorHandling(async (req: NextRequest) => {
+  const { session } = protectAdminRoute(req);
+
+  const body = await req.json().catch(() => null);
+  const validation = validateRequest(createCategoryRequestSchema, body);
+
+  if (!validation.success) {
+    throw new ValidationError("Data kategori tidak valid", {
+      details: validation.error,
     });
-    return success(categories);
-  } catch (error) {
-    console.error("Gagal memuat kategori:", error);
-    return error("CATEGORY_FETCH_FAILED", "Gagal memuat kategori", { status: 500 });
   }
-}
 
-export async function POST(req: NextRequest) {
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+  const { name } = validation.data;
 
-  try {
-    const body = await req.json().catch(() => null);
-    const validation = validateRequest(createCategoryRequestSchema, body);
+  const slug = await ensureUniqueCategorySlug(name);
+  const adminId = session.id;
 
-    if (!validation.success) {
-      return error("VALIDATION_ERROR", "Data kategori tidak valid", {
-        status: 400,
-        details: validation.error,
-      });
-    }
+  const category = await prisma.category.create({
+    data: { name, slug, createdBy: adminId, updatedBy: adminId },
+  });
 
-    const { name } = validation.data;
-
-    const slug = await ensureUniqueCategorySlug(name);
-    const adminId = session.id;
-
-    const category = await prisma.category.create({
-      data: { name, slug, createdBy: adminId, updatedBy: adminId },
-    });
-
-    return success(category, { status: 201 });
-  } catch (error) {
-    console.error("Membuat kategori gagal:", error);
-    return error("CATEGORY_CREATE_FAILED", "Gagal membuat kategori", { status: 500 });
-  }
-}
+  return success(category, { status: 201 });
+});

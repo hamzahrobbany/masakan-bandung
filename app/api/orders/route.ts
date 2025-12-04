@@ -10,106 +10,97 @@ import prisma from "@/lib/prisma";
 import { orderDetailRequestSchema } from "@/schemas/order.schema";
 import { validateRequest } from "@/utils/validate-request";
 import { enforceIpRateLimit } from "@/middleware/rate-limit";
-import { error, success } from "@/utils/response";
+import { success } from "@/utils/response";
+import {
+  NotFoundError,
+  ValidationError,
+} from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandling(async (request: NextRequest) => {
   const validation = validateRequest(orderDetailRequestSchema, {
     ids: request.nextUrl.searchParams.get("ids"),
   });
 
   if (!validation.success) {
-    return error("VALIDATION_ERROR", "Parameter tidak valid", {
-      status: 400,
+    throw new ValidationError("Parameter tidak valid", {
       details: validation.error,
     });
   }
 
   const ids = validation.data.ids;
 
-  try {
-    const foods = await prisma.food.findMany({
-      where: { id: { in: ids }, deletedAt: null },
-      select: { id: true, name: true, price: true, stock: true, isAvailable: true },
-    });
+  const foods = await prisma.food.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+    select: { id: true, name: true, price: true, stock: true, isAvailable: true },
+  });
 
-    if (foods.length === 0) {
-      return error("MENU_NOT_FOUND", "Menu tidak ditemukan", { status: 404 });
-    }
-
-    return success({
-      items: foods.map((food) => ({
-        id: food.id,
-        name: food.name,
-        price: food.price,
-        stock: food.stock,
-        isAvailable: food.isAvailable,
-      })),
-    });
-  } catch (error) {
-    console.error("Gagal mengambil detail order:", error);
-    return error("ORDER_DETAIL_FETCH_FAILED", "Gagal memuat detail menu", { status: 500 });
+  if (foods.length === 0) {
+    throw new NotFoundError("Menu tidak ditemukan", { code: "MENU_NOT_FOUND" });
   }
-}
 
-export async function POST(request: NextRequest) {
-  const rateLimit = await enforceIpRateLimit(request, {
+  return success({
+    items: foods.map((food) => ({
+      id: food.id,
+      name: food.name,
+      price: food.price,
+      stock: food.stock,
+      isAvailable: food.isAvailable,
+    })),
+  });
+});
+
+export const POST = withErrorHandling(async (request: NextRequest) => {
+  await enforceIpRateLimit(request, {
     max: 30,
     windowMs: 60 * 60 * 1000,
     route: "/api/orders",
     name: "public-orders",
   });
 
-  if (rateLimit.limited) {
-    return rateLimit.response;
+  const body = await request.json().catch(() => null);
+  const validation = validateOrder(body);
+
+  if (!validation.success) {
+    throw new ValidationError("Data pesanan tidak valid", {
+      details: validation.error,
+    });
   }
 
-  try {
-    const body = await request.json().catch(() => null);
-    const validation = validateOrder(body);
+  const { customerName, customerPhone, note, items } = validation.data;
 
-    if (!validation.success) {
-      return error("VALIDATION_ERROR", "Data pesanan tidak valid", {
-        status: 400,
-        details: validation.error,
+  const foods = await prisma.food.findMany({
+    where: {
+      id: { in: items.map((item) => item.foodId) },
+      deletedAt: null,
+    },
+    select: { id: true, name: true, price: true, stock: true, isAvailable: true },
+  });
+
+  const stockCheck = checkStock(items, foods);
+
+  if (!stockCheck.success) {
+    if (stockCheck.status === 400) {
+      throw new ValidationError(stockCheck.error, {
+        code: "INSUFFICIENT_STOCK",
       });
     }
 
-    const { customerName, customerPhone, note, items } = validation.data;
-
-    const foods = await prisma.food.findMany({
-      where: {
-        id: { in: items.map((item) => item.foodId) },
-        deletedAt: null,
-      },
-      select: { id: true, name: true, price: true, stock: true, isAvailable: true },
-    });
-
-    const stockCheck = checkStock(items, foods);
-
-    if (!stockCheck.success) {
-      return error(
-        stockCheck.status === 400 ? "INSUFFICIENT_STOCK" : "MENU_NOT_FOUND",
-        stockCheck.error,
-        { status: stockCheck.status }
-      );
-    }
-
-    const total = calculateTotal(items, stockCheck.foodMap);
-
-    const order = await createOrderTransaction(prisma, {
-      customerName,
-      customerPhone,
-      note,
-      items,
-      foodMap: stockCheck.foodMap,
-      total,
-    });
-
-    return success({ id: order.id, status: order.status }, { status: 201 });
-  } catch (error) {
-    console.error("Gagal membuat order:", error);
-    return error("ORDER_CREATE_FAILED", "Gagal membuat pesanan", { status: 500 });
+    throw new NotFoundError(stockCheck.error, { code: "MENU_NOT_FOUND" });
   }
-}
+
+  const total = calculateTotal(items, stockCheck.foodMap);
+
+  const order = await createOrderTransaction(prisma, {
+    customerName,
+    customerPhone,
+    note,
+    items,
+    foodMap: stockCheck.foodMap,
+    total,
+  });
+
+  return success({ id: order.id, status: order.status }, { status: 201 });
+});

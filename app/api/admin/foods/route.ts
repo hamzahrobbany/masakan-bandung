@@ -5,80 +5,72 @@ import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { createFoodRequestSchema } from "@/schemas/food.schema";
 import { validateRequest } from "@/utils/validate-request";
-import { error, success } from "@/utils/response";
+import { success } from "@/utils/response";
+import {
+  NotFoundError,
+  ValidationError,
+} from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
 
 export const runtime = "nodejs";
 
-export async function GET(req: NextRequest) {
-  const { response } = protectAdminRoute(req);
-  if (response) return response;
+export const GET = withErrorHandling(async (req: NextRequest) => {
+  protectAdminRoute(req);
 
-  try {
-    const foods = await prisma.food.findMany({
-      where: { deletedAt: null },
-      include: { category: true },
-      orderBy: { createdAt: "desc" },
+  const foods = await prisma.food.findMany({
+    where: { deletedAt: null },
+    include: { category: true },
+    orderBy: { createdAt: "desc" },
+  });
+  return success(foods);
+});
+
+export const POST = withErrorHandling(async (req: NextRequest) => {
+  const { session } = protectAdminRoute(req);
+
+  const body = await req.json().catch(() => null);
+  const validation = validateRequest(createFoodRequestSchema, body);
+
+  if (!validation.success) {
+    throw new ValidationError("Data makanan tidak valid", {
+      details: validation.error,
     });
-    return success(foods);
-  } catch (error) {
-    console.error("Gagal memuat makanan:", error);
-    return error("FOOD_FETCH_FAILED", "Gagal memuat makanan", { status: 500 });
   }
-}
 
-export async function POST(req: NextRequest) {
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+  const {
+    name,
+    price,
+    description,
+    imageUrl,
+    categoryId,
+    stock,
+    rating,
+    isFeatured,
+    isAvailable,
+  } = validation.data;
 
-  try {
-    const body = await req.json().catch(() => null);
-    const validation = validateRequest(createFoodRequestSchema, body);
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!category || category.deletedAt) {
+    throw new NotFoundError("Kategori tidak ditemukan", { code: "CATEGORY_NOT_FOUND" });
+  }
 
-    if (!validation.success) {
-      return error("VALIDATION_ERROR", "Data makanan tidak valid", {
-        details: validation.error,
-        status: 400,
-      });
-    }
+  const adminId = session.id;
 
-    const {
+  const food = await prisma.food.create({
+    data: {
       name,
       price,
-      description,
-      imageUrl,
+      description: description ?? null,
+      imageUrl: imageUrl || "https://picsum.photos/400",
       categoryId,
-      stock,
-      rating,
-      isFeatured,
-      isAvailable,
-    } = validation.data;
+      stock: stock ?? 0,
+      rating: rating ?? 5,
+      isFeatured: Boolean(isFeatured),
+      isAvailable: isAvailable ?? true,
+      createdBy: adminId,
+      updatedBy: adminId,
+    },
+  });
 
-    const category = await prisma.category.findUnique({ where: { id: categoryId } });
-    if (!category || category.deletedAt) {
-      return error("CATEGORY_NOT_FOUND", "Kategori tidak ditemukan", { status: 404 });
-    }
-
-    const adminId = session.id;
-
-    const food = await prisma.food.create({
-      data: {
-        name,
-        price,
-        description: description ?? null,
-        imageUrl: imageUrl || "https://picsum.photos/400",
-        categoryId,
-        stock: stock ?? 0,
-        rating: rating ?? 5,
-        isFeatured: Boolean(isFeatured),
-        isAvailable: isAvailable ?? true,
-        createdBy: adminId,
-        updatedBy: adminId,
-      },
-    });
-
-    return success(food, { status: 201 });
-  } catch (err) {
-    console.error(err);
-    return error("FOOD_CREATE_FAILED", "Gagal membuat makanan", { status: 500 });
-  }
-}
+  return success(food, { status: 201 });
+});

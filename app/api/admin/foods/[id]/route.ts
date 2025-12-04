@@ -1,8 +1,14 @@
 // app/api/admin/foods/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
+import {
+  NotFoundError,
+  ValidationError,
+} from "@/utils/api-errors";
+import { withErrorHandling } from "@/utils/api-handler";
+import { success } from "@/utils/response";
 
 type FoodUpdatePayload = {
   name?: string;
@@ -19,28 +25,18 @@ type FoodUpdatePayload = {
 
 export const runtime = "nodejs";
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+export const PUT = withErrorHandling(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const { session } = protectAdminRoute(req);
 
-  try {
     if (!id) {
-      return NextResponse.json(
-        { error: "ID makanan tidak valid" },
-        { status: 400 }
-      );
+      throw new ValidationError("ID makanan tidak valid");
     }
 
     const existing = await prisma.food.findUnique({ where: { id } });
     if (!existing || existing.deletedAt) {
-      return NextResponse.json(
-        { error: "Makanan tidak ditemukan" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Makanan tidak ditemukan", { code: "FOOD_NOT_FOUND" });
     }
 
     const body = (await req.json()) as FoodUpdatePayload;
@@ -50,10 +46,7 @@ export async function PUT(
     if (typeof body.name === "string") data.name = body.name;
     if (typeof body.price === "number") {
       if (body.price < 0) {
-        return NextResponse.json(
-          { error: "Harga tidak boleh negatif" },
-          { status: 400 }
-        );
+        throw new ValidationError("Harga tidak boleh negatif");
       }
       data.price = body.price;
     }
@@ -65,19 +58,13 @@ export async function PUT(
       data.isAvailable = body.isAvailable;
     if (typeof body.stock === "number") {
       if (body.stock < 0) {
-        return NextResponse.json(
-          { error: "Stok tidak boleh negatif" },
-          { status: 400 }
-        );
+        throw new ValidationError("Stok tidak boleh negatif");
       }
       data.stock = body.stock;
     }
     if (typeof body.rating === "number") {
       if (body.rating < 0 || body.rating > 5) {
-        return NextResponse.json(
-          { error: "Rating harus di antara 0 hingga 5" },
-          { status: 400 }
-        );
+        throw new ValidationError("Rating harus di antara 0 hingga 5");
       }
       data.rating = body.rating;
     }
@@ -88,10 +75,7 @@ export async function PUT(
         where: { id: data.categoryId },
       });
       if (!targetCategory || targetCategory.deletedAt) {
-        return NextResponse.json(
-          { error: "Kategori tidak ditemukan" },
-          { status: 404 }
-        );
+        throw new NotFoundError("Kategori tidak ditemukan", { code: "CATEGORY_NOT_FOUND" });
       }
     }
 
@@ -102,50 +86,28 @@ export async function PUT(
       data,
     });
 
-    return NextResponse.json(food);
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Gagal update makanan" },
-      { status: 500 }
-    );
+    return success(food);
   }
-}
+);
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { response, session } = protectAdminRoute(req);
-  if (response) return response;
+export const DELETE = withErrorHandling(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const { session } = protectAdminRoute(req);
 
-  try {
     if (!id) {
-      return NextResponse.json(
-        { error: "ID makanan tidak valid" },
-        { status: 400 }
-      );
+      throw new ValidationError("ID makanan tidak valid");
     }
 
     const existing = await prisma.food.findUnique({ where: { id } });
     if (!existing || existing.deletedAt) {
-      return NextResponse.json(
-        { error: "Makanan tidak ditemukan" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Makanan tidak ditemukan", { code: "FOOD_NOT_FOUND" });
     }
 
     await prisma.food.update({
       where: { id },
       data: { deletedAt: new Date(), updatedBy: session.id },
     });
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Gagal hapus makanan" },
-      { status: 500 }
-    );
+    return success();
   }
-}
+);
