@@ -1,16 +1,18 @@
 // app/api/admin/foods/route.ts
 import { NextRequest, NextResponse } from "next/server";
+
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const foods = await prisma.food.findMany({
+      where: { deletedAt: null },
       include: { category: true },
       orderBy: { createdAt: "desc" },
     });
@@ -25,8 +27,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const body = await req.json();
@@ -97,6 +99,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category || category.deletedAt) {
+      return NextResponse.json(
+        { error: "Kategori tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
+    const adminId = session.id;
+
     const food = await prisma.food.create({
       data: {
         name,
@@ -108,6 +120,8 @@ export async function POST(req: NextRequest) {
         rating: rating ?? 5,
         isFeatured: Boolean(isFeatured),
         isAvailable: isAvailable ?? true,
+        createdBy: adminId,
+        updatedBy: adminId,
       },
     });
 

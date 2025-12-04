@@ -10,8 +10,8 @@ type EditFoodPageProps = {
 export default async function EditFoodPage({ params }: EditFoodPageProps) {
   const { id } = await params;
   const [categories, food] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.food.findUnique({ where: { id } }),
+    prisma.category.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.food.findFirst({ where: { id, deletedAt: null } }),
   ]);
 
   if (!food) {

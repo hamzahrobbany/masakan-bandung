@@ -8,12 +8,13 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const [categoriesCount, foodsCount, ordersCount, pendingOrders, latestOrders] =
     await Promise.all([
-      prisma.category.count(),
-      prisma.food.count(),
-      prisma.order.count(),
-      prisma.order.count({ where: { status: "PENDING" } }),
+      prisma.category.count({ where: { deletedAt: null } }),
+      prisma.food.count({ where: { deletedAt: null } }),
+      prisma.order.count({ where: { deletedAt: null } }),
+      prisma.order.count({ where: { status: "PENDING", deletedAt: null } }),
       prisma.order.findMany({
-        include: { items: true },
+        include: { items: { where: { deletedAt: null } } },
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),

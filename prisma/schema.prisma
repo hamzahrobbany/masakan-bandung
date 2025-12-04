@@ -14,10 +14,14 @@ model Category {
   createdAt DateTime @default(now())
   slug      String   @unique
   updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
   foods     Food[]
 
   @@index([name])
   @@index([slug])
+  @@index([deletedAt])
 }
 
 model Food {
@@ -29,6 +33,9 @@ model Food {
   categoryId  String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  deletedAt   DateTime?
   isAvailable Boolean     @default(true)
   isFeatured  Boolean     @default(false)
   rating      Float       @default(5.0)
@@ -39,6 +46,7 @@ model Food {
   @@index([categoryId])
   @@index([isAvailable])
   @@index([isFeatured])
+  @@index([deletedAt])
 }
 
 model Order {
@@ -50,11 +58,15 @@ model Order {
   total         Int
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  deletedAt     DateTime?
   items         OrderItem[]
 
   @@index([status])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([deletedAt])
 }
 
 model OrderItem {
@@ -65,10 +77,14 @@ model OrderItem {
   foodPrice Int
   quantity  Int
   createdAt DateTime @default(now())
+  createdBy String?
+  updatedBy String?
+  deletedAt DateTime?
   food      Food?    @relation(fields: [foodId], references: [id])
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([deletedAt])
 }
 
 model Admin {
@@ -77,8 +93,12 @@ model Admin {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+  createdBy    String?
+  updatedBy    String?
+  deletedAt    DateTime?
 
   @@index([email])
+  @@index([deletedAt])
 }
 
 enum OrderStatus {

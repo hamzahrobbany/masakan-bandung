@@ -7,8 +7,8 @@ import { assertValidUpload, buildUploadPath } from "@/lib/uploads";
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const guard = protectAdminRoute(request);
-  if (guard) return guard;
+  const { response } = protectAdminRoute(request);
+  if (response) return response;
 
   try {
     const formData = await request.formData();

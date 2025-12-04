@@ -50,8 +50,8 @@ function validateItems(raw: unknown): OrderItemInput[] | null {
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const search = req.nextUrl.searchParams.get("search")?.trim();
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     );
     const status = req.nextUrl.searchParams.get("status")?.trim();
 
-    const where: Prisma.OrderWhereInput = {};
+    const where: Prisma.OrderWhereInput = { deletedAt: null };
 
     if (search) {
       where.OR = [
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
-        include: { items: true },
+        include: { items: { where: { deletedAt: null } } },
         where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
@@ -113,8 +113,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const body = await req.json().catch(() => null);
@@ -164,7 +164,10 @@ export async function POST(req: NextRequest) {
     }));
 
     const foods = await prisma.food.findMany({
-      where: { id: { in: aggregated.map((item) => item.foodId) } },
+      where: {
+        id: { in: aggregated.map((item) => item.foodId) },
+        deletedAt: null,
+      },
       select: { id: true, name: true, price: true, stock: true, isAvailable: true },
     });
 
@@ -198,6 +201,8 @@ export async function POST(req: NextRequest) {
       return sum + food.price * item.quantity;
     }, 0);
 
+    const adminId = session.id;
+
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -206,6 +211,8 @@ export async function POST(req: NextRequest) {
           note,
           total,
           status,
+          createdBy: adminId,
+          updatedBy: adminId,
           items: {
             create: aggregated.map((item) => {
               const food = foodMap.get(item.foodId)!;
@@ -214,6 +221,8 @@ export async function POST(req: NextRequest) {
                 foodName: food.name,
                 foodPrice: food.price,
                 quantity: item.quantity,
+                createdBy: adminId,
+                updatedBy: adminId,
               };
             }),
           },

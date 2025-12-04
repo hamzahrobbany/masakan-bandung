@@ -21,12 +21,13 @@ export default async function HomePage({
   const pageSize = 12;
 
   const foodFilter = {
+    deletedAt: null,
     isAvailable: true,
     ...(selectedCategory ? { categoryId: selectedCategory } : {})
   } as const;
 
   const [categories, foodCount] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: 'asc' } }),
+    prisma.category.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
     prisma.food.count({ where: foodFilter })
   ]);
 

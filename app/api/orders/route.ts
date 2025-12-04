@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     const foods = await prisma.food.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, deletedAt: null },
       select: { id: true, name: true, price: true, stock: true, isAvailable: true },
     });
 
@@ -153,7 +153,10 @@ export async function POST(request: NextRequest) {
     }));
 
     const foods = await prisma.food.findMany({
-      where: { id: { in: aggregated.map((item) => item.foodId) } },
+      where: {
+        id: { in: aggregated.map((item) => item.foodId) },
+        deletedAt: null,
+      },
       select: { id: true, name: true, price: true, stock: true, isAvailable: true },
     });
 

@@ -17,8 +17,8 @@ function sanitizeOptionalString(value: unknown) {
 }
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const { id: rawId } = await params;
@@ -32,10 +32,10 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: { items: { where: { deletedAt: null } } },
     });
 
-    if (!order) {
+    if (!order || order.deletedAt) {
       return NextResponse.json(
         { error: "Pesanan tidak ditemukan" },
         { status: 404 }
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const { id: rawId } = await params;
@@ -67,7 +67,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
 
     const existing = await prisma.order.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json(
         { error: "Pesanan tidak ditemukan" },
         { status: 404 }
@@ -114,6 +114,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       customerName?: string | null;
       customerPhone?: string | null;
       note?: string | null;
+      updatedBy?: string | null;
     } = {
       status: nextStatus,
     };
@@ -121,11 +122,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (hasCustomerName) data.customerName = customerName ?? null;
     if (hasCustomerPhone) data.customerPhone = customerPhone ?? null;
     if (hasNote) data.note = note ?? null;
+    data.updatedBy = session.id;
 
     const order = await prisma.order.update({
       where: { id },
       data,
-      include: { items: true },
+      include: { items: { where: { deletedAt: null } } },
     });
 
     return NextResponse.json(order);
@@ -139,8 +141,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     const { id: rawId } = await params;
@@ -154,30 +156,40 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
     const existing = await prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: { items: { where: { deletedAt: null } } },
     });
 
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json(
         { error: "Pesanan tidak ditemukan" },
         { status: 404 }
       );
     }
 
+    const deletedAt = new Date();
+
     await prisma.$transaction(async (tx) => {
       const restockItems = existing.items.filter((item) => item.foodId);
       if (restockItems.length > 0) {
         await Promise.all(
           restockItems.map((item) =>
-            tx.food.update({
-              where: { id: item.foodId! },
+            tx.food.updateMany({
+              where: { id: item.foodId!, deletedAt: null },
               data: { stock: { increment: item.quantity } },
             })
           )
         );
       }
 
-      await tx.order.delete({ where: { id } });
+      await tx.orderItem.updateMany({
+        where: { orderId: id, deletedAt: null },
+        data: { deletedAt, updatedBy: session.id },
+      });
+
+      await tx.order.update({
+        where: { id },
+        data: { deletedAt, updatedBy: session.id },
+      });
     });
 
     return NextResponse.json({ success: true });

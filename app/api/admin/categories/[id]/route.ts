@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
@@ -11,8 +12,10 @@ async function ensureUniqueCategorySlug(name: string, excludeId: string) {
   let suffix = 2;
 
   while (true) {
-    const existing = await prisma.category.findUnique({ where: { slug } });
-    if (!existing || existing.id === excludeId) break;
+    const existing = await prisma.category.findFirst({
+      where: { slug, deletedAt: null, id: { not: excludeId } },
+    });
+    if (!existing) break;
 
     slug = `${baseSlug}-${suffix}`;
     suffix += 1;
@@ -26,8 +29,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     if (!id) {
@@ -41,7 +44,7 @@ export async function PUT(
     }
 
     const existing = await prisma.category.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
     }
 
@@ -52,7 +55,7 @@ export async function PUT(
 
     const updated = await prisma.category.update({
       where: { id },
-      data: { name, slug },
+      data: { name, slug, updatedBy: session.id },
     });
 
     return NextResponse.json(updated);
@@ -67,8 +70,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     if (!id) {
@@ -76,12 +79,13 @@ export async function DELETE(
     }
 
     const existing = await prisma.category.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
     }
 
-    await prisma.category.delete({
+    await prisma.category.update({
       where: { id },
+      data: { deletedAt: new Date(), updatedBy: session.id },
     });
 
     return NextResponse.json({ success: true });

@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Ambil data admin dari database
-    const admin = await prisma.admin.findUnique({
-      where: { id: session.id },
+    const admin = await prisma.admin.findFirst({
+      where: { id: session.id, deletedAt: null },
       select: {
         id: true,
         email: true,

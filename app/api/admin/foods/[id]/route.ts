@@ -1,5 +1,6 @@
 // app/api/admin/foods/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
+
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 
@@ -13,6 +14,7 @@ type FoodUpdatePayload = {
   stock?: number;
   rating?: number;
   isFeatured?: boolean;
+  updatedBy?: string;
 };
 
 export const runtime = "nodejs";
@@ -22,8 +24,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     if (!id) {
@@ -34,7 +36,7 @@ export async function PUT(
     }
 
     const existing = await prisma.food.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json(
         { error: "Makanan tidak ditemukan" },
         { status: 404 }
@@ -43,7 +45,7 @@ export async function PUT(
 
     const body = (await req.json()) as FoodUpdatePayload;
 
-    const data: FoodUpdatePayload = {};
+    const data: FoodUpdatePayload & { updatedBy?: string } = {};
 
     if (typeof body.name === "string") data.name = body.name;
     if (typeof body.price === "number") {
@@ -81,6 +83,20 @@ export async function PUT(
     }
     if (typeof body.isFeatured === "boolean") data.isFeatured = body.isFeatured;
 
+    if (data.categoryId) {
+      const targetCategory = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+      });
+      if (!targetCategory || targetCategory.deletedAt) {
+        return NextResponse.json(
+          { error: "Kategori tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+    }
+
+    data.updatedBy = session.id;
+
     const food = await prisma.food.update({
       where: { id },
       data,
@@ -101,8 +117,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const guard = protectAdminRoute(req);
-  if (guard) return guard;
+  const { response, session } = protectAdminRoute(req);
+  if (response) return response;
 
   try {
     if (!id) {
@@ -113,14 +129,17 @@ export async function DELETE(
     }
 
     const existing = await prisma.food.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json(
         { error: "Makanan tidak ditemukan" },
         { status: 404 }
       );
     }
 
-    await prisma.food.delete({ where: { id } });
+    await prisma.food.update({
+      where: { id },
+      data: { deletedAt: new Date(), updatedBy: session.id },
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

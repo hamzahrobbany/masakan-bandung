@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const admin = await prisma.admin.findUnique({
-      where: { email },
+    const admin = await prisma.admin.findFirst({
+      where: { email, deletedAt: null },
     });
     if (!admin) {
       return redirectWithError(req, "Email tidak ditemukan", redirectParam);

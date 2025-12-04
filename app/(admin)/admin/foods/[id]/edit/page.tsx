@@ -14,8 +14,8 @@ type EditFoodPageProps = {
 async function loadFoodData(foodId: string) {
   'use server';
   const [food, categories] = await Promise.all([
-    prisma.food.findUnique({ where: { id: foodId } }),
-    prisma.category.findMany({ orderBy: { name: 'asc' } })
+    prisma.food.findFirst({ where: { id: foodId, deletedAt: null } }),
+    prisma.category.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } })
   ]);
   return { food, categories };
 }
