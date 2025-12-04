@@ -5,6 +5,7 @@ import { attachSessionCookie, verifyPassword } from "@/lib/auth";
 import { ADMIN_LOGIN_PATH, ADMIN_ROUTE_PREFIX } from "@/lib/security";
 import { adminLoginRequestSchema } from "@/schemas/admin-login.schema";
 import { validateRequest } from "@/utils/validate-request";
+import { enforceIpRateLimit } from "@/middleware/rate-limit";
 
 function sanitizeRedirect(target?: string | null) {
   if (!target) return ADMIN_ROUTE_PREFIX;
@@ -42,6 +43,17 @@ function redirectWithError(req: NextRequest, message: string, redirectParam: str
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = await enforceIpRateLimit(req, {
+    max: 5,
+    windowMs: 10 * 60 * 1000,
+    route: "/api/admin/login",
+    name: "admin-login",
+  });
+
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   try {
     const rawPayload = await parsePayload(req);
     const validation = validateRequest(adminLoginRequestSchema, rawPayload, {

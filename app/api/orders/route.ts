@@ -9,6 +9,7 @@ import {
 import prisma from "@/lib/prisma";
 import { orderDetailRequestSchema } from "@/schemas/order.schema";
 import { validateRequest } from "@/utils/validate-request";
+import { enforceIpRateLimit } from "@/middleware/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = await enforceIpRateLimit(request, {
+    max: 30,
+    windowMs: 60 * 60 * 1000,
+    route: "/api/orders",
+    name: "public-orders",
+  });
+
+  if (rateLimit.limited) {
+    return rateLimit.response;
+  }
+
   try {
     const body = await request.json().catch(() => null);
     const validation = validateOrder(body);
