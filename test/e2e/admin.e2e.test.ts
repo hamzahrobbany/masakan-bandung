@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Admin } from "@prisma/client";
+
 import { ADMIN_SESSION_COOKIE } from "@/lib/security";
 import { createPrismaMock } from "../utils/prisma-mock";
 
@@ -14,18 +16,19 @@ beforeEach(() => {
 
 describe("POST /api/admin/login", () => {
   it("sets session cookie on successful login", async () => {
+    const adminRecord: Admin = {
+      id: "admin-1",
+      email: "admin@masakan.com",
+      name: "Admin",
+      passwordHash: "hashed",
+      createdAt: new Date(),
+      createdBy: null,
+      updatedBy: null,
+      deletedAt: null,
+    };
     const prismaMock = createPrismaMock({
-      admin: {
-        id: "admin-1",
-        email: "admin@masakan.com",
-        name: "Admin",
-        passwordHash: "hashed",
-        createdAt: new Date(),
-        createdBy: null,
-        updatedBy: null,
-        deletedAt: null,
-      },
-    } as any);
+      admin: adminRecord,
+    });
 
     vi.doMock("@/lib/prisma", () => ({
       __esModule: true,

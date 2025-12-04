@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { ZodError } from "@/lib/zod";
 
 type ZodSchema<T> = {
   safeParse: (

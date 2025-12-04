@@ -49,6 +49,12 @@ abstract class BaseSchema<T> {
   }
 }
 
+type SchemaShape = Record<string, BaseSchema<unknown>>;
+
+type InferShape<Shape extends SchemaShape> = {
+  [K in keyof Shape]: Shape[K] extends BaseSchema<infer U> ? U : never;
+};
+
 class StringSchema extends BaseSchema<string> {
   private readonly minValue?: { value: number; message: string };
   private readonly maxValue?: { value: number; message: string };
@@ -70,7 +76,7 @@ class StringSchema extends BaseSchema<string> {
       return { success: false as const, issues: [{ path, message: "Expected string" }] };
     }
 
-    let value = this.trimEnabled ? data.trim() : data;
+    const value = this.trimEnabled ? data.trim() : data;
 
     const issues: ZodIssue[] = [];
     if (this.minValue && value.length < this.minValue.value) {
@@ -135,7 +141,7 @@ class NumberSchema extends BaseSchema<number> {
       return { success: false as const, issues: [{ path, message: "Expected number" }] };
     }
 
-    let value = data;
+    const value = data;
     const issues: ZodIssue[] = [];
 
     if (this.intOnly && !Number.isInteger(value)) {
@@ -158,7 +164,7 @@ class NumberSchema extends BaseSchema<number> {
     return { success: true as const, value };
   }
 
-  int(message?: string | { message?: string }) {
+  int() {
     return new NumberSchema({
       ...this,
       intOnly: true,
@@ -175,7 +181,6 @@ class NumberSchema extends BaseSchema<number> {
       intOnly: this.intOnly,
       positiveOnly: true,
       nonNegative: this.nonNegative,
-      min: this.minValue,
       max: this.maxValue,
       min: { value: 1, message: normalizeMessage(message, "Must be greater than 0") },
     });
@@ -280,9 +285,7 @@ class ArraySchema<T> extends BaseSchema<T[]> {
   }
 }
 
-class ObjectSchema<Shape extends Record<string, BaseSchema<any>>> extends BaseSchema<
-  { [K in keyof Shape]: Shape[K] extends BaseSchema<infer U> ? U : never }
-> {
+class ObjectSchema<Shape extends SchemaShape> extends BaseSchema<InferShape<Shape>> {
   constructor(private readonly shape: Shape) {
     super();
   }
@@ -307,12 +310,15 @@ class ObjectSchema<Shape extends Record<string, BaseSchema<any>>> extends BaseSc
     }
 
     if (issues.length) return { success: false as const, issues };
-    return { success: true as const, value: result as any };
+    return { success: true as const, value: result as InferShape<Shape> };
   }
 }
 
-class UnionSchema<T> extends BaseSchema<T> {
-  constructor(private readonly schemas: BaseSchema<any>[]) {
+type UnionSchemas = BaseSchema<unknown>[];
+type InferUnionOutput<Schemas extends UnionSchemas> = Schemas[number] extends BaseSchema<infer U> ? U : never;
+
+class UnionSchema<Schemas extends UnionSchemas> extends BaseSchema<InferUnionOutput<Schemas>> {
+  constructor(private readonly schemas: Schemas) {
     super();
   }
 
@@ -406,9 +412,9 @@ export const z = {
   string: () => new StringSchema(),
   number: () => new NumberSchema(),
   boolean: () => new BooleanSchema(),
-  object: <Shape extends Record<string, BaseSchema<any>>>(shape: Shape) => new ObjectSchema(shape),
+  object: <Shape extends SchemaShape>(shape: Shape) => new ObjectSchema(shape),
   array: <T>(schema: BaseSchema<T>) => new ArraySchema(schema),
-  union: <T extends BaseSchema<any>[]>(schemas: T) => new UnionSchema<any>(schemas),
+  union: <Schemas extends UnionSchemas>(schemas: Schemas) => new UnionSchema(schemas),
   preprocess: <T>(processor: (data: unknown) => unknown, schema: BaseSchema<T>) =>
     new PreprocessSchema(processor, schema),
   null: () => new NullSchema(),

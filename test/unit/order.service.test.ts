@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
   calculateTotal,
@@ -120,7 +121,7 @@ describe("reserveStock", () => {
 
 describe("createOrderTransaction", () => {
   it("creates order and reserves stock in a transaction", async () => {
-    const createdOrders: any[] = [];
+    const createdOrders: Array<{ id: string; status: string }> = [];
     const update = vi.fn();
 
     const tx = {
@@ -132,11 +133,12 @@ describe("createOrderTransaction", () => {
         }),
       },
       food: { update },
-    } as any;
+    } as unknown as Prisma.TransactionClient;
 
     const prismaClient = {
-      $transaction: (callback: any) => callback(tx),
-    } as any;
+      $transaction: (callback: Parameters<PrismaClient["$transaction"]>[0]) =>
+        callback(tx),
+    } as unknown as PrismaClient;
 
     const items: NormalizedOrderItem[] = [
       { foodId: "food-a", quantity: 1 },

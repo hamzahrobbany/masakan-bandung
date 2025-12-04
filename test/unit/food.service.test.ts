@@ -5,6 +5,7 @@ import {
   buildFoodFilters,
   validateFood,
 } from "@/domain/foods/service";
+import { createFoodRequestSchema } from "@/schemas/food.schema";
 
 const adminId = "admin-1";
 
@@ -40,7 +41,7 @@ describe("validateFood", () => {
 
 describe("buildFoodCreateData", () => {
   it("applies defaults and preserves provided fields", () => {
-    const data = buildFoodCreateData({
+    const parsedPayload = createFoodRequestSchema.parse({
       ...basePayload,
       description: undefined,
       imageUrl: "",
@@ -48,7 +49,8 @@ describe("buildFoodCreateData", () => {
       rating: undefined,
       isFeatured: false,
       isAvailable: undefined,
-    } as any, adminId);
+    });
+    const data = buildFoodCreateData(parsedPayload, adminId);
 
     expect(data.description).toBeNull();
     expect(data.imageUrl).toContain("https://picsum.photos/400");

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod";
 
 import { ADMIN_ROUTE_PREFIX } from "@/lib/security";
 import { optionalSanitizedString, standardErrorSchema } from "./common";

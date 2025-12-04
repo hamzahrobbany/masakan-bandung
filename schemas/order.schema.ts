@@ -1,5 +1,5 @@
 import { OrderStatus } from "@prisma/client";
-import { z } from "zod";
+import { z } from "@/lib/zod";
 
 import { optionalSanitizedString, standardErrorSchema } from "./common";
 
