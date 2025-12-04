@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { createCategoryRequestSchema } from "@/schemas/category.schema";
+import { validateRequest } from "@/utils/validate-request";
 
 export const runtime = "nodejs";
 
@@ -52,10 +54,14 @@ export async function POST(req: NextRequest) {
   if (response) return response;
 
   try {
-    const { name } = await req.json();
-    if (!name) {
-      return NextResponse.json({ error: "Nama wajib" }, { status: 400 });
+    const body = await req.json().catch(() => null);
+    const validation = validateRequest(createCategoryRequestSchema, body);
+
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
+
+    const { name } = validation.data;
 
     const slug = await ensureUniqueCategorySlug(name);
     const adminId = session.id;

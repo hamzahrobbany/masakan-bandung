@@ -9,11 +9,11 @@ datasource db {
 }
 
 model Category {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  createdAt DateTime  @default(now())
-  slug      String    @unique
-  updatedAt DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  slug      String   @unique
+  updatedAt DateTime @updatedAt
   createdBy String?
   updatedBy String?
   deletedAt DateTime?
@@ -70,31 +70,27 @@ model Order {
 }
 
 model OrderItem {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   orderId   String
   foodId    String
   foodName  String
   foodPrice Int
   quantity  Int
-  createdAt DateTime  @default(now())
-  createdBy String?
-  updatedBy String?
-  deletedAt DateTime?
-  food      Food      @relation(fields: [foodId], references: [id])
-  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  food      Food     @relation(fields: [foodId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@unique([orderId, foodId])
   @@index([orderId])
-  @@index([foodId])
   @@index([deletedAt])
 }
 
 model Admin {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   name         String
-  email        String    @unique
+  email        String   @unique
   passwordHash String
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
   createdBy    String?
   updatedBy    String?
   deletedAt    DateTime?

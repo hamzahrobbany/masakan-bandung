@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
+import { createFoodRequestSchema } from "@/schemas/food.schema";
+import { validateRequest } from "@/utils/validate-request";
 
 export const runtime = "nodejs";
 
@@ -31,7 +33,13 @@ export async function POST(req: NextRequest) {
   if (response) return response;
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    const validation = validateRequest(createFoodRequestSchema, body);
+
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
+    }
+
     const {
       name,
       price,
@@ -42,62 +50,7 @@ export async function POST(req: NextRequest) {
       rating,
       isFeatured,
       isAvailable,
-    } = body;
-
-    if (!name || typeof name !== "string") {
-      return NextResponse.json(
-        { error: "Nama wajib diisi" },
-        { status: 400 }
-      );
-    }
-    if (price === undefined || typeof price !== "number") {
-      return NextResponse.json(
-        { error: "Harga wajib diisi" },
-        { status: 400 }
-      );
-    }
-    if (price < 0) {
-      return NextResponse.json(
-        { error: "Harga tidak boleh negatif" },
-        { status: 400 }
-      );
-    }
-    if (!categoryId || typeof categoryId !== "string") {
-      return NextResponse.json(
-        { error: "Kategori wajib dipilih" },
-        { status: 400 }
-      );
-    }
-
-    if (stock !== undefined) {
-      if (typeof stock !== "number") {
-        return NextResponse.json(
-          { error: "Stok harus berupa angka" },
-          { status: 400 }
-        );
-      }
-      if (stock < 0) {
-        return NextResponse.json(
-          { error: "Stok tidak boleh negatif" },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (rating !== undefined) {
-      if (typeof rating !== "number") {
-        return NextResponse.json(
-          { error: "Rating harus berupa angka" },
-          { status: 400 }
-        );
-      }
-      if (rating < 0 || rating > 5) {
-        return NextResponse.json(
-          { error: "Rating harus di antara 0 hingga 5" },
-          { status: 400 }
-        );
-      }
-    }
+    } = validation.data;
 
     const category = await prisma.category.findUnique({ where: { id: categoryId } });
     if (!category || category.deletedAt) {

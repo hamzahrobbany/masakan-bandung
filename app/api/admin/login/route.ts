@@ -2,23 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 import prisma from "@/lib/prisma";
 import { attachSessionCookie, verifyPassword } from "@/lib/auth";
-import {
-  ADMIN_LOGIN_PATH,
-  ADMIN_ROUTE_PREFIX,
-} from "@/lib/security";
+import { ADMIN_LOGIN_PATH, ADMIN_ROUTE_PREFIX } from "@/lib/security";
+import { adminLoginRequestSchema } from "@/schemas/admin-login.schema";
+import { validateRequest } from "@/utils/validate-request";
 
 function sanitizeRedirect(target?: string | null) {
   if (!target) return ADMIN_ROUTE_PREFIX;
-  return target.startsWith(ADMIN_ROUTE_PREFIX)
-    ? target
-    : ADMIN_ROUTE_PREFIX;
+  return target.startsWith(ADMIN_ROUTE_PREFIX) ? target : ADMIN_ROUTE_PREFIX;
 }
 
-function redirectWithError(
-  req: NextRequest,
-  message: string,
-  redirectParam: string
-) {
+async function parsePayload(req: NextRequest) {
+  const contentType = req.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = await req.json().catch(() => null);
+    return {
+      email: body?.email?.toString(),
+      password: body?.password?.toString(),
+      redirect: body?.redirect?.toString(),
+    };
+  }
+
+  const formData = await req.formData();
+  return {
+    email: formData.get("email")?.toString(),
+    password: formData.get("password")?.toString(),
+    redirect: formData.get("redirect")?.toString(),
+  };
+}
+
+function redirectWithError(req: NextRequest, message: string, redirectParam: string) {
   const url = new URL(ADMIN_LOGIN_PATH, req.url);
   if (redirectParam.startsWith(ADMIN_ROUTE_PREFIX)) {
     url.searchParams.set("redirect", redirectParam);
@@ -30,44 +43,33 @@ function redirectWithError(
 
 export async function POST(req: NextRequest) {
   try {
-    const contentType = req.headers.get("content-type") ?? "";
-    let email = "";
-    let password = "";
-    let redirectParam = ADMIN_ROUTE_PREFIX;
+    const rawPayload = await parsePayload(req);
+    const validation = validateRequest(adminLoginRequestSchema, rawPayload, {
+      errorMessage: "Email dan password wajib diisi",
+    });
 
-    if (contentType.includes("application/json")) {
-      const body = await req.json().catch(() => null);
-      email = body?.email?.toString().trim() ?? "";
-      password = body?.password?.toString() ?? "";
-      redirectParam = sanitizeRedirect(body?.redirect);
-    } else {
-      const formData = await req.formData();
-      email = formData.get("email")?.toString().trim() ?? "";
-      password = formData.get("password")?.toString() ?? "";
-      redirectParam = sanitizeRedirect(formData.get("redirect")?.toString());
+    const redirectParam = sanitizeRedirect(rawPayload.redirect);
+
+    if (!validation.success) {
+      const message = validation.error.details?.[0] ?? validation.error.error;
+      return redirectWithError(req, message, redirectParam);
     }
 
-    if (!email || !password) {
-      return redirectWithError(
-        req,
-        "Email dan password wajib diisi",
-        redirectParam
-      );
-    }
+    const { email, password, redirect } = validation.data;
 
     const admin = await prisma.admin.findFirst({
       where: { email, deletedAt: null },
     });
     if (!admin) {
-      return redirectWithError(req, "Email tidak ditemukan", redirectParam);
+      return redirectWithError(req, "Email tidak ditemukan", redirect);
     }
 
     const isValid = await verifyPassword(password, admin.passwordHash);
     if (!isValid) {
-      return redirectWithError(req, "Password salah", redirectParam);
+      return redirectWithError(req, "Password salah", redirect);
     }
 
-    const redirectUrl = new URL(redirectParam, req.url);
+    const redirectUrl = new URL(redirect, req.url);
     const res = NextResponse.redirect(redirectUrl, { status: 303 });
     attachSessionCookie(res, {
       id: admin.id,
@@ -77,10 +79,6 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error("Login error:", error);
-    return redirectWithError(
-      req,
-      "Login gagal. Coba lagi.",
-      ADMIN_ROUTE_PREFIX
-    );
+    return redirectWithError(req, "Login gagal. Coba lagi.", ADMIN_ROUTE_PREFIX);
   }
 }

@@ -6,47 +6,11 @@ import { OrderStatus, Prisma } from "@prisma/client";
 import { protectAdminRoute } from "@/lib/protect-admin-route";
 import prisma from "@/lib/prisma";
 import { aggregateOrderItems } from "@/lib/order-items";
-
-type OrderItemInput = {
-  foodId: string;
-  quantity: number;
-};
-
-function sanitizeOptionalString(value: unknown) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function validateItems(raw: unknown): OrderItemInput[] | null {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return null;
-  }
-
-  const normalized: OrderItemInput[] = [];
-
-  for (const item of raw) {
-    if (
-      !item ||
-      typeof item !== "object" ||
-      typeof (item as OrderItemInput).foodId !== "string" ||
-      typeof (item as OrderItemInput).quantity !== "number"
-    ) {
-      return null;
-    }
-
-    const foodId = (item as OrderItemInput).foodId.trim();
-    const quantity = Math.floor((item as OrderItemInput).quantity);
-
-    if (!foodId || quantity <= 0) {
-      return null;
-    }
-
-    normalized.push({ foodId, quantity });
-  }
-
-  return normalized;
-}
+import {
+  adminOrderQuerySchema,
+  adminOrderRequestSchema,
+} from "@/schemas/order.schema";
+import { validateRequest } from "@/utils/validate-request";
 
 export const runtime = "nodejs";
 
@@ -54,15 +18,20 @@ export async function GET(req: NextRequest) {
   const { response } = protectAdminRoute(req);
   if (response) return response;
 
-  try {
-    const search = req.nextUrl.searchParams.get("search")?.trim();
-    const page = Math.max(Number(req.nextUrl.searchParams.get("page")) || 1, 1);
-    const pageSize = Math.min(
-      Math.max(Number(req.nextUrl.searchParams.get("pageSize")) || 10, 1),
-      50
-    );
-    const status = req.nextUrl.searchParams.get("status")?.trim();
+  const validation = validateRequest(adminOrderQuerySchema, {
+    search: req.nextUrl.searchParams.get("search"),
+    page: req.nextUrl.searchParams.get("page"),
+    pageSize: req.nextUrl.searchParams.get("pageSize"),
+    status: req.nextUrl.searchParams.get("status"),
+  });
 
+  if (!validation.success) {
+    return NextResponse.json(validation.error, { status: 400 });
+  }
+
+  const { search, page, pageSize, status } = validation.data;
+
+  try {
     const where: Prisma.OrderWhereInput = { deletedAt: null };
 
     if (search) {
@@ -119,41 +88,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Payload tidak valid" },
-        { status: 400 }
-      );
+    const validation = validateRequest(adminOrderRequestSchema, body);
+
+    if (!validation.success) {
+      return NextResponse.json(validation.error, { status: 400 });
     }
 
-    const customerName = sanitizeOptionalString((body as Record<string, unknown>).customerName);
-    const customerPhone = sanitizeOptionalString((body as Record<string, unknown>).customerPhone);
-    const note = sanitizeOptionalString((body as Record<string, unknown>).note);
-    const statusInput = sanitizeOptionalString((body as Record<string, unknown>).status);
-    const items = validateItems((body as Record<string, unknown>).items);
-
-    if (!items) {
-      return NextResponse.json(
-        { error: "Item pesanan tidak valid" },
-        { status: 400 }
-      );
-    }
-
-    const status: OrderStatus =
-      (statusInput as OrderStatus | null) ?? OrderStatus.PENDING;
-    const validStatuses: OrderStatus[] = [
-      OrderStatus.PENDING,
-      OrderStatus.PROCESSED,
-      OrderStatus.DONE,
-      OrderStatus.CANCELLED,
-    ];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: "Status tidak valid" },
-        { status: 400 }
-      );
-    }
-
+    const { customerName, customerPhone, note, items, status } = validation.data;
     const aggregated = aggregateOrderItems(items);
 
     const foods = await prisma.food.findMany({
